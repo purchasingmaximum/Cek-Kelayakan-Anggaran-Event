@@ -285,6 +285,7 @@ dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
 .sync { align-self: center; font-size: 12.5px; color: var(--muted); }
 .sync.ok { color: var(--green); }
 .sync.err { color: var(--red); }
+body.booting #view-edit { opacity: .55; pointer-events: none; }
 .pj-hint { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
 .pj-linkrow { display: flex; gap: 6px; flex-basis: 100%; }
 .pj-link { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
@@ -441,7 +442,7 @@ const FIREBASE_CONFIG = {
 /* Isi dengan konfigurasi web app Firebase Anda, contoh:
    { apiKey: "...", authDomain: "nama.firebaseapp.com", projectId: "nama", appId: "..." } */
 const FB_VER = "10.14.1";
-const FB_WORKSPACE = bJPbv6NMbnTnapBpCPnEYQ2n;   /* opsional: kunci tetap (mis. "kode-rahasia-panjang") agar link biasa tanpa #r=... juga masuk ke ruang yang sama */
+const FB_WORKSPACE = null;   /* opsional: kunci tetap (mis. "kode-rahasia-panjang") agar link biasa tanpa #r=... juga masuk ke ruang yang sama */
 const PROJ_KEY = "anggaran-projects-v2", LAST_KEY = "anggaran-last-project", WS_KEY = "anggaran-ruang";
 let store = { current: null, items: {} };   /* items[id] = { updated, state } */
 let curId = null;
@@ -571,7 +572,7 @@ function waitAuth() {
     off = fb.authM.onAuthStateChanged(fb.auth, u => { if (done) return; done = true; if (off) off(); res(u); });
   });
 }
-let unsubCloud = null;
+let unsubCloud = null, bootAborted = false;
 let pendingRemote = false;
 function remoteApplyIfIdle() {   /* terapkan perubahan dari perangkat lain bila Anda tidak sedang mengetik */
   if (!pendingRemote || !store.items[curId] || saveTimers[curId]) return;
@@ -588,6 +589,9 @@ function startCloud(user) {
   return new Promise(resolve => {
     let first = true;
     unsubCloud = fb.fsM.onSnapshot(cloudCol(), snap => {
+      if (bootAborted) return;
+      if (snap.metadata && snap.metadata.fromCache) setSync("Menunggu sambungan ke cloud…", "");
+      else if (!first && !Object.keys(saveTimers).length) setSync("Tersimpan di cloud (ruang bersama)", "ok");
       snap.docChanges().forEach(ch => {
         const id = ch.doc.id;
         if (ch.type === "removed") { if (id !== curId) delete store.items[id]; return; }
@@ -622,8 +626,9 @@ function openInitialCloud() {
 async function bootStorage() {
   if (await initCloud()) {
     let user = await waitAuth();
+    if (bootAborted) return;
     if (!user) {   /* belum pernah dibuka di browser ini: buat identitas anonim otomatis */
-      try { user = (await fb.authM.signInAnonymously(fb.auth)).user; }
+      try { user = (await fb.authM.signInAnonymously(fb.auth)).user; if (bootAborted) return; }
       catch (e) {
         const c = (e && e.code) || "";
         fb = null;
@@ -634,6 +639,7 @@ async function bootStorage() {
       }
     }
     await startCloud(user);
+    if (bootAborted) return;
     openInitialCloud();
     setSync("Tersimpan di cloud (ruang bersama)", "ok");
     return;
@@ -1298,11 +1304,36 @@ $("pj-close").addEventListener("click", () => dlg.close());
 dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
 $("pj-new").addEventListener("click", () => addProject(freshState(true), "Proyek baru dibuat dan sedang dibuka."));
 
+const BOOT_TIMEOUT = 12000;   /* batas tunggu cloud (ms); lewat itu aplikasi memakai penyimpanan browser */
+function bootWithTimeout() {
+  return new Promise(res => {
+    let done = false;
+    const fin = v => { if (!done) { done = true; clearTimeout(timer); res(v); } };
+    const timer = setTimeout(() => { bootAborted = true; fin("timeout"); }, BOOT_TIMEOUT);
+    bootStorage().then(() => fin("ok")).catch(e => { bootAborted = true; fin(e || new Error("error")); });
+  });
+}
 (async function main() {
   bindStatic();
-  await bootStorage();
+  const useCloud = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey);
+  if (useCloud) {   /* tampilkan kerangka dulu agar halaman tidak kosong selagi menghubungkan */
+    state = freshState(true); syncStatic(); render(); update();
+    document.body.classList.add("booting");
+    setSync("Menghubungkan ke cloud…", "");
+  }
+  const r = await bootWithTimeout();
+  if (r !== "ok") {   /* cloud lambat / galat: jatuh ke penyimpanan browser dan sebutkan alasannya */
+    try { if (unsubCloud) unsubCloud(); } catch (e) {}
+    fb = null; store = { current: null, items: {} }; curId = null; state = freshState();
+    cloudNote = r === "timeout"
+      ? "cloud tidak menjawab (cek koneksi, aturan Firestore, atau pemblokir iklan)"
+      : "cloud bermasalah: " + ((r && (r.code || r.message)) || "error");
+    loadLocal();
+    setSync("Tersimpan di browser · " + cloudNote, "err");
+  }
   syncStatic(); render(); update(); save(true);
   if (!store.items[curId]) save();
+  document.body.classList.remove("booting");
 })();
 </script>
 </body>
