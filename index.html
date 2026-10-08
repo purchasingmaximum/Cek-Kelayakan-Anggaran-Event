@@ -262,6 +262,34 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ptable thead { display: table-header-group; }
 }
 .xmsg { align-self: center; font-size: 13px; color: var(--muted); }
+/* ---------- daftar proyek ---------- */
+dialog#projects { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); padding: 18px 20px; width: min(660px, calc(100% - 32px)); max-height: 82vh; overflow: auto; font: inherit; }
+dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
+.pj-head { display: flex; justify-content: space-between; align-items: center; }
+.pj-head h2 { margin: 0; font-size: 18px; }
+.pj-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
+.pj-msg { min-height: 20px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.pj-list { list-style: none; margin: 0; padding: 0; }
+.pj-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.pj-list .nm { font-weight: 600; }
+.pj-list .sub { font-size: 12.5px; color: var(--muted); }
+.pj-list .st { font-size: 12.5px; font-weight: 600; margin-left: 8px; }
+.pj-list .st.ok { color: var(--blue); }
+.pj-list .st.no { color: var(--red); }
+.pj-list .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.pj-list .ghost { padding: 5px 10px; font-size: 13px; }
+.pj-list li.cur .nm::after { content: " · dibuka"; font-weight: 400; color: var(--muted); }
+.ghost:disabled { opacity: .45; cursor: default; }
+.pj-acct { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pj-acct .ghost { padding: 3px 9px; font-size: 12.5px; }
+.sync { align-self: center; font-size: 12.5px; color: var(--muted); }
+.sync.ok { color: var(--green); }
+.sync.err { color: var(--red); }
+#gate { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 24px; }
+#gate[hidden] { display: none; }
+.gate-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 28px 28px 24px; width: min(420px, 100%); text-align: center; }
+.gate-box h2 { margin: 0 0 8px; font-size: 22px; }
+.gate-box p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -271,7 +299,7 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
   <div class="head">
     <div>
       <input class="title-in" id="p-nama" aria-label="Nama proyek" placeholder="Nama proyek">
-      <p class="hint">Ubah angka di sel mana pun, hasilnya langsung berubah di panel kelayakan.</p>
+      <p class="hint">Ubah angka di sel mana pun, hasilnya langsung berubah di panel kelayakan. Pindah sel dengan tombol panah atau Enter.</p>
       <div class="meta">
         <label class="field">Klien <input id="p-klien" placeholder="Nama klien"></label>
         <label class="field">Venue <input id="p-venue" placeholder="Lokasi"></label>
@@ -280,6 +308,8 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
       </div>
     </div>
     <div class="actions">
+      <span class="sync" id="sync" role="status"></span>
+      <button class="ghost" id="pj-open" type="button">Proyek</button>
       <button class="ghost" id="reset" type="button">Kembalikan ke template</button>
       <button class="primary go-prev" type="button">Next: Preview →</button>
     </div>
@@ -323,7 +353,7 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
         <div class="row"><span class="k">Total harga jual</span><span class="v" id="s-jual"></span></div>
         <div class="row"><span class="k">Total modal</span><span class="v" id="s-modal"></span></div>
         <div class="row"><span class="k">Margin</span><span class="v" id="s-margin"></span></div>
-        <div class="row"><span class="k">EO Fee<span class="unit">dari total harga jual</span></span>
+        <div class="row"><span class="k">EO Fee <span class="unit">dari total harga jual</span></span>
           <span><input class="pct" id="in-eo" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen EO Fee"><span class="unit">%</span></span></div>
         <div class="row"><span class="k">Nilai EO Fee</span><span class="v" id="s-eo"></span></div>
       </div>
@@ -345,6 +375,25 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 14px; }
     </aside>
   </div>
 </div>
+
+<div id="gate" hidden>
+  <div class="gate-box">
+    <h2>Anggaran Event</h2>
+    <p id="gate-msg">Masuk dengan akun Google untuk membuka proyek Anda.</p>
+    <button class="primary" id="gate-btn" type="button">Masuk dengan Google</button>
+    <div><button class="ghost" id="gate-local" type="button" style="margin-top:12px">Lanjut tanpa cloud (hanya di browser ini)</button></div>
+  </div>
+</div>
+
+<dialog id="projects" aria-labelledby="pj-title">
+  <div class="pj-head"><h2 id="pj-title">Proyek tersimpan</h2><button class="x" id="pj-close" type="button" aria-label="Tutup">×</button></div>
+  <div class="pj-tools">
+    <button class="primary" id="pj-new" type="button">+ Proyek baru</button>
+  </div>
+  <div class="pj-msg" id="pj-msg" role="status"></div>
+  <ul class="pj-list" id="pj-list"></ul>
+  <div class="pj-acct" id="pj-acct"></div>
+</dialog>
 
 <div id="view-prev" hidden>
   <div class="toolbar noprint">
@@ -374,9 +423,10 @@ const STORE_KEY = "anggaran-event-v1";
 let uid = 0;
 const nid = () => "i" + (++uid);
 
-function freshState() {
+function freshState(blank) {
   return {
-    project: { nama: "Run Festival", klien: "BCA", venue: "Stadion GBK", mulai: "2026-07-10", selesai: "2026-09-10" },
+    project: blank ? { nama: "Proyek baru", klien: "", venue: "", mulai: "", selesai: "" }
+                   : { nama: "Run Festival", klien: "BCA", venue: "Stadion GBK", mulai: "2026-07-10", selesai: "2026-09-10" },
     plafon: 400000, eoPct: 10, vatPct: 11,
     cats: TEMPLATE.map(([name, items]) => ({
       id: nid(), name, custom: false,
@@ -386,17 +436,196 @@ function freshState() {
 }
 let state = freshState();
 
-/* ===== penyimpanan lokal (kenyamanan, boleh kosong) ===== */
-function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+/* ===== penyimpanan proyek =====
+   Mode cloud : Firebase Auth (Google) + Firestore, aktif bila FIREBASE_CONFIG diisi dan SDK bisa dimuat.
+   Mode lokal : localStorage di browser (cadangan otomatis bila cloud tidak tersedia). */
+const FIREBASE_CONFIG = null;
+/* Isi dengan konfigurasi web app Firebase Anda, contoh:
+   { apiKey: "AIzaSyDkT8cS__aQXw5PToC9Jf8F7C2zwWbBxCw",
+  authDomain: "feasibilitymxm.firebaseapp.com",
+  projectId: "feasibilitymxm",
+  storageBucket: "feasibilitymxm.firebasestorage.app",
+  messagingSenderId: "737498733330",
+  appId: "1:737498733330:web:ac7c30d15483900fb771cb",
+  measurementId: "G-6540E6FS5J" } */
+const FB_SHARED = false;      /* false: proyek privat per akun. true: satu daftar proyek bersama (atur aturan Firestore sesuai) */
+const FB_VER = "10.14.1";
+const PROJ_KEY = "anggaran-projects-v2", LAST_KEY = "anggaran-last-project";
+let store = { current: null, items: {} };   /* items[id] = { updated, state } */
+let curId = null;
+let fb = null;                               /* terisi bila mode cloud aktif */
+let cloudNote = "";                          /* alasan bila cloud tidak dipakai */
+const newPid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const validState = o => !!(o && typeof o === "object" && o.project && Array.isArray(o.cats));
+const byNewest = (a, b) => store.items[b].updated - store.items[a].updated;
+function fixUid(st) {   /* pastikan id baru tidak bentrok dengan id yang sudah tersimpan */
+  let m = uid;
+  JSON.stringify(st).replace(/"id":"[a-z]+(\d+)"/g, (_, n) => { m = Math.max(m, +n); return ""; });
+  uid = m;
 }
-function load() {
+function setSync(t, cls) { const el = $("sync"); if (el) { el.textContent = t || ""; el.className = "sync " + (cls || ""); } }
+const cloudOn = () => !!(fb && fb.user);
+
+/* --- lokal --- */
+function localWrite() {
+  try { localStorage.setItem(PROJ_KEY, JSON.stringify(store)); setSync("Tersimpan di browser" + (cloudNote ? " · " + cloudNote : ""), cloudNote ? "" : "ok"); }
+  catch (e) { setSync("Gagal menyimpan (penyimpanan browser diblokir/penuh)", "err"); }
+}
+function loadLocal() {
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    if (s && Array.isArray(s.cats) && s.project) { state = s; uid = 100000; }
+    const raw = localStorage.getItem(PROJ_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.items) {
+        Object.keys(s.items).forEach(id => { if (!s.items[id] || !validState(s.items[id].state)) delete s.items[id]; });
+        const ids = Object.keys(s.items);
+        if (ids.length) {
+          store = { current: null, items: s.items };
+          curId = s.items[s.current] ? s.current : ids[0];
+          state = s.items[curId].state; fixUid(state);
+          return;
+        }
+      }
+    }
+    const old = localStorage.getItem(STORE_KEY);   /* migrasi dari versi satu-proyek */
+    if (old) { const o = JSON.parse(old); if (validState(o)) { state = o; fixUid(o); } }
   } catch (e) {}
+  curId = newPid();
+}
+
+/* --- cloud (Firestore) --- */
+const saveTimers = {};
+function cloudCol() {
+  const f = fb.fsM;
+  return FB_SHARED ? f.collection(fb.db, "projects") : f.collection(fb.db, "users", fb.user.uid, "projects");
+}
+function cloudData(id) {
+  const it = store.items[id], st = it.state;
+  let ok = false; try { ok = calc(st).ok; } catch (e) {}
+  return { nama: st.project.nama || "", klien: st.project.klien || "", venue: st.project.venue || "", ok, updated: it.updated, owner: fb.user.uid, state: JSON.stringify(st) };
+}
+function queueCloud(id, now) {
+  clearTimeout(saveTimers[id]);
+  setSync("Menyimpan…", "");
+  const run = () => {
+    delete saveTimers[id];
+    if (!store.items[id]) return;
+    fb.fsM.setDoc(fb.fsM.doc(cloudCol(), id), cloudData(id))
+      .then(() => { if (!Object.keys(saveTimers).length) setSync("Tersimpan di cloud", "ok"); })
+      .catch(e => setSync("Gagal menyimpan (" + ((e && e.code) || "error") + ")", "err"));
+    if (!navigator.onLine) setSync("Offline: akan tersimpan saat tersambung", "");
+  };
+  if (now) run(); else saveTimers[id] = setTimeout(run, 700);
+}
+function flushCloud() { Object.keys(saveTimers).forEach(id => queueCloud(id, true)); }
+window.addEventListener("pagehide", () => { if (cloudOn()) flushCloud(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && cloudOn()) flushCloud(); });
+
+/* quiet = true: hanya mendaftarkan proyek aktif (tanpa mengubah waktu "diubah" bila sudah ada) */
+function save(quiet) {
+  if (!curId) return;
+  const ex = store.items[curId];
+  store.current = curId;
+  try { localStorage.setItem(LAST_KEY, curId); } catch (e) {}
+  if (quiet && ex) { ex.state = state; return; }
+  store.items[curId] = { updated: Date.now(), state };
+  if (cloudOn()) queueCloud(curId); else localWrite();
+}
+function commitProject(id) { if (cloudOn()) queueCloud(id, true); else localWrite(); }
+function removeProject(id) {
+  delete store.items[id];
+  if (cloudOn()) {
+    clearTimeout(saveTimers[id]); delete saveTimers[id];
+    fb.fsM.deleteDoc(fb.fsM.doc(cloudCol(), id)).catch(e => setSync("Gagal menghapus (" + ((e && e.code) || "error") + ")", "err"));
+  } else localWrite();
+}
+
+async function initCloud() {
+  if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) { cloudNote = "Firebase belum diatur"; return false; }
+  try {
+    const base = "https://www.gstatic.com/firebasejs/" + FB_VER + "/";
+    const [appM, authM, fsM] = await Promise.all([import(base + "firebase-app.js"), import(base + "firebase-auth.js"), import(base + "firebase-firestore.js")]);
+    const app = appM.initializeApp(FIREBASE_CONFIG);
+    const auth = authM.getAuth(app);
+    let db;
+    try { db = fsM.initializeFirestore(app, { localCache: fsM.persistentLocalCache() }); }
+    catch (e) { db = fsM.getFirestore(app); }
+    fb = { appM, authM, fsM, auth, db, user: null };
+    return true;
+  } catch (e) { cloudNote = "Firebase tidak bisa dimuat (periksa koneksi)"; return false; }
+}
+function waitAuth() {
+  return new Promise(res => {
+    let done = false, off = null;
+    off = fb.authM.onAuthStateChanged(fb.auth, u => { if (done) return; done = true; if (off) off(); res(u); });
+  });
+}
+function askLogin() {
+  const gate = $("gate"), btn = $("gate-btn"), msg = $("gate-msg");
+  gate.hidden = false;
+  return new Promise(res => {
+    $("gate-local").onclick = () => { gate.hidden = true; res(null); };
+    btn.onclick = async () => {
+      btn.disabled = true; msg.textContent = "Membuka jendela masuk…";
+      try {
+        const cred = await fb.authM.signInWithPopup(fb.auth, new fb.authM.GoogleAuthProvider());
+        gate.hidden = true; res(cred.user);
+      } catch (e) {
+        const c = (e && e.code) || "";
+        msg.textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request" ? "Masuk dibatalkan. Coba lagi."
+          : c === "auth/unauthorized-domain" ? "Domain ini belum diizinkan di Firebase (Authentication → Settings → Authorized domains)."
+          : c === "auth/popup-blocked" ? "Jendela masuk diblokir browser. Izinkan pop-up lalu coba lagi."
+          : "Gagal masuk (" + (c || "error") + ").";
+        btn.disabled = false;
+      }
+    };
+  });
+}
+let unsubCloud = null;
+function startCloud(user) {
+  fb.user = user;
+  return new Promise(resolve => {
+    let first = true;
+    unsubCloud = fb.fsM.onSnapshot(cloudCol(), snap => {
+      snap.docChanges().forEach(ch => {
+        const id = ch.doc.id;
+        if (ch.type === "removed") { if (id !== curId) delete store.items[id]; return; }
+        if (id === curId) return;   /* jangan menimpa proyek yang sedang disunting */
+        try {
+          const d = ch.doc.data(), st = JSON.parse(d.state);
+          if (validState(st)) { fixUid(st); store.items[id] = { updated: d.updated || 0, state: st }; }
+        } catch (e) {}
+      });
+      if (first) { first = false; resolve(); }
+      else if ($("projects").open) renderProjects();
+    }, err => {
+      setSync("Gagal membaca cloud (" + ((err && err.code) || "error") + ")", "err");
+      if (first) { first = false; resolve(); }
+    });
+  });
+}
+function openInitialCloud() {
+  const ids = Object.keys(store.items).sort(byNewest);
+  let last = null; try { last = localStorage.getItem(LAST_KEY); } catch (e) {}
+  const id = store.items[last] ? last : ids[0];
+  if (id) { curId = id; state = store.items[id].state; fixUid(state); }
+  else { curId = newPid(); state = freshState(true); }
+}
+async function bootStorage() {
+  if (await initCloud()) {
+    let user = await waitAuth();
+    if (!user) user = await askLogin();
+    if (!user) {   /* memilih lanjut tanpa cloud */
+      fb = null; cloudNote = "tidak masuk, cloud tidak dipakai";
+      loadLocal(); setSync("Tersimpan di browser · " + cloudNote, ""); return;
+    }
+    await startCloud(user);
+    openInitialCloud();
+    setSync("Tersimpan di cloud", "ok");
+    return;
+  }
+  loadLocal();
+  setSync(cloudNote ? "Tersimpan di browser · " + cloudNote : "Tersimpan di browser", cloudNote ? "" : "ok");
 }
 
 /* ===== util ===== */
@@ -431,6 +660,39 @@ function bindNum(inp, getVal, setVal) {
     try { inp.setSelectionRange(c, c); } catch (e) {}
     setVal(n); update(); save();
   });
+}
+
+/* ===== navigasi sel ala Excel =====
+   Atas/bawah/Enter: pindah baris. Kiri/kanan: pindah kolom, tetapi hanya bila seluruh angka
+   sedang terpilih (baru masuk sel) atau kursor SUDAH berada di ujung angka. Selain itu kursor
+   bergerak di dalam angka seperti biasa, jadi nilai masih bisa disunting digit per digit. */
+function moveCell(inp, dr, dc) {
+  const cols = ["jual", "modal"];
+  const rows = [...document.querySelectorAll("#sheet tbody tr")].filter(tr => {
+    const a = tr.querySelector('input[data-col="jual"]'); return a && !a.disabled;
+  });
+  const ri = rows.indexOf(inp.closest("tr")); if (ri < 0) return false;
+  const ci = cols.indexOf(inp.dataset.col) + dc, rj = ri + dr;
+  if (ci < 0 || ci > 1 || rj < 0 || rj >= rows.length) return false;
+  const tgt = rows[rj].querySelector('input[data-col="' + cols[ci] + '"]');
+  if (!tgt) return false;
+  tgt.focus();
+  return true;
+}
+function gridNav(e) {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  const inp = e.currentTarget, k = e.key;
+  if (k === "Enter") { e.preventDefault(); moveCell(inp, e.shiftKey ? -1 : 1, 0); return; }
+  if (e.shiftKey) return;
+  const len = inp.value.length, s0 = inp.selectionStart, s1 = inp.selectionEnd;
+  const full = len > 0 && s0 === 0 && s1 === len;
+  const atStart = s0 === s1 && s0 === 0, atEnd = s0 === s1 && s0 === len;
+  let moved = false;
+  if (k === "ArrowUp") moved = moveCell(inp, -1, 0);
+  else if (k === "ArrowDown") moved = moveCell(inp, 1, 0);
+  else if (k === "ArrowLeft" && (full || atStart)) moved = moveCell(inp, 0, -1);
+  else if (k === "ArrowRight" && (full || atEnd)) moved = moveCell(inp, 0, 1);
+  if (moved) e.preventDefault();
 }
 
 /* ===== render struktur tabel ===== */
@@ -483,13 +745,7 @@ function itemRow(cat, it) {
   const modal = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
   bindNum(jual, () => it.jual, v => it.jual = v);
   bindNum(modal, () => it.modal, v => it.modal = v);
-  [jual, modal].forEach(inp => inp.addEventListener("keydown", e => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const all = [...document.querySelectorAll(`input[data-col="${inp.dataset.col}"]`)];
-    const nxt = all[all.indexOf(inp) + (e.shiftKey ? -1 : 1)];
-    if (nxt) nxt.focus();
-  }));
+  [jual, modal].forEach(inp => inp.addEventListener("keydown", gridNav));
 
   const mar = h("td", { class: "td-mar" });
   const ada = h("input", { type: "checkbox", "aria-label": "Item ada" });
@@ -586,17 +842,22 @@ function update() {
 }
 
 /* ===== kontrol di luar tabel ===== */
-function bindStatic() {
-  const p = state.project;
+function bindStatic() {   /* dipasang sekali */
   [["p-nama", "nama"], ["p-klien", "klien"], ["p-venue", "venue"], ["p-mulai", "mulai"], ["p-selesai", "selesai"]].forEach(([id, key]) => {
-    const el = $(id); el.value = p[key] || "";
-    el.oninput = () => { p[key] = el.value; save(); };
+    const el = $(id);
+    el.oninput = () => { state.project[key] = el.value; save(); };
   });
   bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v);
   [["in-eo", "eoPct"], ["in-vat", "vatPct"]].forEach(([id, key]) => {
-    const el = $(id); el.value = state[key];
+    const el = $(id);
     el.oninput = () => { const n = parseFloat(el.value); state[key] = isFinite(n) && n >= 0 ? n : 0; update(); save(); };
   });
+}
+function syncStatic() {   /* isi ulang kolom dari proyek yang sedang dibuka */
+  const p = state.project;
+  [["p-nama", "nama"], ["p-klien", "klien"], ["p-venue", "venue"], ["p-mulai", "mulai"], ["p-selesai", "selesai"]].forEach(([id, key]) => { $(id).value = p[key] || ""; });
+  $("in-plafon").value = state.plafon ? fmt(state.plafon) : "";
+  $("in-eo").value = state.eoPct; $("in-vat").value = state.vatPct;
 }
 
 $("add-cat").addEventListener("click", () => {
@@ -615,7 +876,8 @@ $("reset").addEventListener("click", () => {
   }
   clearTimeout(resetTimer); resetTimer = null;
   btn.textContent = "Kembalikan ke template";
-  state = freshState(); bindStatic(); render(); update(); save();
+  const keep = state.project; state = freshState(); state.project = keep;
+  syncStatic(); render(); update(); save();
 });
 
 /* mini bar muncul hanya saat panel status di luar layar (mobile) */
@@ -639,19 +901,19 @@ function statusReasons(gap, margin) {
   return r;
 }
 function sgn(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n)); }
-function calc() {
+function calc(st = state) {
   let T = 0, M = 0, lossN = 0;
-  state.cats.forEach(c => c.items.forEach(it => {
+  st.cats.forEach(c => c.items.forEach(it => {
     if (it.off) return;
     T += it.jual; M += it.modal;
     if (it.jual - it.modal < 0) lossN++;
   }));
-  const eo = Math.round(T * state.eoPct / 100);
+  const eo = Math.round(T * st.eoPct / 100);
   const before = T + eo;
-  const vat = Math.round(before * state.vatPct / 100);
-  const gap = state.plafon - before;
-  const usage = state.plafon > 0 ? before / state.plafon : (before > 0 ? Infinity : 0);
-  return { T, M, margin: T - M, eo, before, vat, after: before + vat, gap, ok: gap >= 0 && (T - M) >= 0, usage, maxT: state.plafon / (1 + state.eoPct / 100), lossN };
+  const vat = Math.round(before * st.vatPct / 100);
+  const gap = st.plafon - before;
+  const usage = st.plafon > 0 ? before / st.plafon : (before > 0 ? Infinity : 0);
+  return { T, M, margin: T - M, eo, before, vat, after: before + vat, gap, ok: gap >= 0 && (T - M) >= 0, usage, maxT: st.plafon / (1 + st.eoPct / 100), lossN };
 }
 function longDate(v) {
   if (!v) return "";
@@ -942,7 +1204,92 @@ $("xlsx").addEventListener("click", exportExcel);
   $("xlsx").hidden = !(dlCap || directMode);
 })();
 
-load(); bindStatic(); render(); update();
+
+/* ===== daftar proyek ===== */
+const dlg = $("projects");
+const pjMsg = t => { $("pj-msg").textContent = t || ""; };
+function showCurrent() {
+  syncStatic(); render(); update();
+  if (!$("view-prev").hidden) showView("edit");
+}
+function openProject(id) {
+  if (!store.items[id]) return;
+  save(true);
+  curId = id; state = store.items[id].state; fixUid(state);
+  showCurrent(); save(true);
+  dlg.close();
+}
+function addProject(st, label) {
+  save(true);
+  curId = newPid(); state = st; fixUid(st);
+  showCurrent(); save();
+  if (cloudOn()) queueCloud(curId, true);   /* proyek baru langsung ditulis, tanpa jeda */
+  renderProjects(); pjMsg(label || "");
+}
+function renderAccount() {
+  const box = $("pj-acct"); box.textContent = "";
+  if (cloudOn()) {
+    box.append(h("span", { text: "Cloud · masuk sebagai " + (fb.user.email || fb.user.displayName || "akun Google") }));
+    box.append(h("button", { class: "ghost", type: "button", text: "Keluar", onclick: async () => {
+      flushCloud();
+      try { if (unsubCloud) unsubCloud(); await fb.authM.signOut(fb.auth); } catch (e) {}
+      location.reload();
+    } }));
+  } else {
+    box.append(h("span", { text: "Tersimpan di browser ini" + (cloudNote ? " · " + cloudNote : "") }));
+  }
+}
+function renderProjects() {
+  save(true);
+  renderAccount();
+  const ul = $("pj-list"); ul.textContent = "";
+  Object.keys(store.items).sort(byNewest).forEach(id => {
+    const it = store.items[id], st = it.state;
+    let c; try { c = calc(st); } catch (e) { return; }
+    const when = it.updated ? new Date(it.updated).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+    const sub = [st.project.klien, st.project.venue].filter(Boolean).join(" · ");
+    const info = h("div", {},
+      h("div", {}, h("span", { class: "nm", text: st.project.nama || "(tanpa nama)" }), h("span", { class: "st " + (c.ok ? "ok" : "no"), text: c.ok ? "Feasible" : "Tidak feasible" })),
+      h("div", { class: "sub", text: (sub ? sub + " · " : "") + "diubah " + when }));
+    const open = h("button", { class: "ghost", type: "button", text: "Buka" });
+    if (id === curId) open.disabled = true; else open.addEventListener("click", () => openProject(id));
+    const dup = h("button", { class: "ghost", type: "button", text: "Duplikat", onclick: () => {
+      const copy = JSON.parse(JSON.stringify(st));
+      copy.project.nama = (copy.project.nama || "Proyek") + " (salinan)";
+      const nid2 = newPid(); fixUid(copy);
+      store.items[nid2] = { updated: Date.now(), state: copy };
+      commitProject(nid2);
+      renderProjects(); pjMsg("Disalin sebagai “" + copy.project.nama + "”.");
+    } });
+    let t = null;
+    const del = h("button", { class: "ghost", type: "button", text: "Hapus" });
+    del.addEventListener("click", () => {
+      if (!t) { del.textContent = "Yakin?"; t = setTimeout(() => { del.textContent = "Hapus"; t = null; }, 3000); return; }
+      clearTimeout(t);
+      removeProject(id);
+      if (id === curId) {
+        const rest = Object.keys(store.items).sort(byNewest);
+        if (rest.length) { curId = rest[0]; state = store.items[curId].state; fixUid(state); }
+        else { curId = newPid(); state = freshState(true); }
+        showCurrent(); save(true);
+        if (!store.items[curId]) save();
+      }
+      renderProjects(); pjMsg("Proyek dihapus.");
+    });
+    ul.append(h("li", { class: id === curId ? "cur" : "" }, info, h("div", { class: "btns" }, open, dup, del)));
+  });
+}
+$("pj-open").addEventListener("click", () => { pjMsg(""); renderProjects(); dlg.showModal(); });
+$("pj-close").addEventListener("click", () => dlg.close());
+dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+$("pj-new").addEventListener("click", () => addProject(freshState(true), "Proyek baru dibuat dan sedang dibuka."));
+
+(async function main() {
+  bindStatic();
+  await bootStorage();
+  syncStatic(); render(); update(); save(true);
+  if (!store.items[curId]) save();
+})();
 </script>
 </body>
 </html>
