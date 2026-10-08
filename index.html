@@ -285,11 +285,9 @@ dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
 .sync { align-self: center; font-size: 12.5px; color: var(--muted); }
 .sync.ok { color: var(--green); }
 .sync.err { color: var(--red); }
-#gate { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 24px; }
-#gate[hidden] { display: none; }
-.gate-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 28px 28px 24px; width: min(420px, 100%); text-align: center; }
-.gate-box h2 { margin: 0 0 8px; font-size: 22px; }
-.gate-box p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+.pj-hint { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
+.pj-linkrow { display: flex; gap: 6px; flex-basis: 100%; }
+.pj-link { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 </style>
 </head>
 <body>
@@ -376,15 +374,6 @@ dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
   </div>
 </div>
 
-<div id="gate" hidden>
-  <div class="gate-box">
-    <h2>Anggaran Event</h2>
-    <p id="gate-msg">Masuk dengan akun Google untuk membuka proyek Anda.</p>
-    <button class="primary" id="gate-btn" type="button">Masuk dengan Google</button>
-    <div><button class="ghost" id="gate-local" type="button" style="margin-top:12px">Lanjut tanpa cloud (hanya di browser ini)</button></div>
-  </div>
-</div>
-
 <dialog id="projects" aria-labelledby="pj-title">
   <div class="pj-head"><h2 id="pj-title">Proyek tersimpan</h2><button class="x" id="pj-close" type="button" aria-label="Tutup">×</button></div>
   <div class="pj-tools">
@@ -437,7 +426,8 @@ function freshState(blank) {
 let state = freshState();
 
 /* ===== penyimpanan proyek =====
-   Mode cloud : Firebase Auth (Google) + Firestore, aktif bila FIREBASE_CONFIG diisi dan SDK bisa dimuat.
+   Mode cloud : Firebase Anonymous Auth (otomatis, tanpa login) + Firestore. Proyek disimpan di "ruang bersama":
+               siapa pun yang membuka link dengan kunci ruang yang sama (#r=...) melihat daftar proyek yang sama.
    Mode lokal : localStorage di browser (cadangan otomatis bila cloud tidak tersedia). */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDkT8cS__aQXw5PToC9Jf8F7C2zwWbBxCw",
@@ -448,9 +438,11 @@ const FIREBASE_CONFIG = {
   appId: "1:737498733330:web:ac7c30d15483900fb771cb",
   measurementId: "G-6540E6FS5J"
 };
-const FB_SHARED = false;      /* false: proyek privat per akun. true: satu daftar proyek bersama (atur aturan Firestore sesuai) */
+/* Isi dengan konfigurasi web app Firebase Anda, contoh:
+   { apiKey: "...", authDomain: "nama.firebaseapp.com", projectId: "nama", appId: "..." } */
 const FB_VER = "10.14.1";
-const PROJ_KEY = "anggaran-projects-v2", LAST_KEY = "anggaran-last-project";
+const FB_WORKSPACE = null;   /* opsional: kunci tetap (mis. "kode-rahasia-panjang") agar link biasa tanpa #r=... juga masuk ke ruang yang sama */
+const PROJ_KEY = "anggaran-projects-v2", LAST_KEY = "anggaran-last-project", WS_KEY = "anggaran-ruang";
 let store = { current: null, items: {} };   /* items[id] = { updated, state } */
 let curId = null;
 let fb = null;                               /* terisi bila mode cloud aktif */
@@ -495,9 +487,27 @@ function loadLocal() {
 
 /* --- cloud (Firestore) --- */
 const saveTimers = {};
+let wsKey = null;
+function randomKey() {
+  const a = new Uint8Array(16); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode(...a)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function getWorkspace() {   /* urutan: #r= di link, lalu yang tersimpan di browser, lalu FB_WORKSPACE, lalu buat baru */
+  let key = null;
+  const m = location.hash.match(/[#&]r=([A-Za-z0-9_-]{12,64})/);
+  if (m) key = m[1];
+  try { if (key) localStorage.setItem(WS_KEY, key); else key = localStorage.getItem(WS_KEY); } catch (e) {}
+  if (!key && FB_WORKSPACE) key = FB_WORKSPACE;
+  if (!key) { key = randomKey(); try { localStorage.setItem(WS_KEY, key); } catch (e) {} }
+  try { history.replaceState(null, "", location.pathname + location.search + "#r=" + key); } catch (e) {}
+  return key;
+}
+window.addEventListener("hashchange", () => {   /* link ruang lain ditempel di tab yang sama: pindah ruang */
+  const m = location.hash.match(/[#&]r=([A-Za-z0-9_-]{12,64})/);
+  if (m && wsKey && m[1] !== wsKey) location.reload();
+});
 function cloudCol() {
-  const f = fb.fsM;
-  return FB_SHARED ? f.collection(fb.db, "projects") : f.collection(fb.db, "users", fb.user.uid, "projects");
+  return fb.fsM.collection(fb.db, "ruang", wsKey, "projects");
 }
 function cloudData(id) {
   const it = store.items[id], st = it.state;
@@ -528,6 +538,7 @@ function save(quiet) {
   store.current = curId;
   try { localStorage.setItem(LAST_KEY, curId); } catch (e) {}
   if (quiet && ex) { ex.state = state; return; }
+  pendingRemote = false;   /* perubahan sendiri didahulukan */
   store.items[curId] = { updated: Date.now(), state };
   if (cloudOn()) queueCloud(curId); else localWrite();
 }
@@ -560,41 +571,38 @@ function waitAuth() {
     off = fb.authM.onAuthStateChanged(fb.auth, u => { if (done) return; done = true; if (off) off(); res(u); });
   });
 }
-function askLogin() {
-  const gate = $("gate"), btn = $("gate-btn"), msg = $("gate-msg");
-  gate.hidden = false;
-  return new Promise(res => {
-    $("gate-local").onclick = () => { gate.hidden = true; res(null); };
-    btn.onclick = async () => {
-      btn.disabled = true; msg.textContent = "Membuka jendela masuk…";
-      try {
-        const cred = await fb.authM.signInWithPopup(fb.auth, new fb.authM.GoogleAuthProvider());
-        gate.hidden = true; res(cred.user);
-      } catch (e) {
-        const c = (e && e.code) || "";
-        msg.textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request" ? "Masuk dibatalkan. Coba lagi."
-          : c === "auth/unauthorized-domain" ? "Domain ini belum diizinkan di Firebase (Authentication → Settings → Authorized domains)."
-          : c === "auth/popup-blocked" ? "Jendela masuk diblokir browser. Izinkan pop-up lalu coba lagi."
-          : "Gagal masuk (" + (c || "error") + ").";
-        btn.disabled = false;
-      }
-    };
-  });
-}
 let unsubCloud = null;
+let pendingRemote = false;
+function remoteApplyIfIdle() {   /* terapkan perubahan dari perangkat lain bila Anda tidak sedang mengetik */
+  if (!pendingRemote || !store.items[curId] || saveTimers[curId]) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  pendingRemote = false;
+  state = store.items[curId].state; fixUid(state);
+  showCurrent();
+}
+document.addEventListener("focusout", () => setTimeout(remoteApplyIfIdle, 0));
 function startCloud(user) {
   fb.user = user;
+  wsKey = getWorkspace();
   return new Promise(resolve => {
     let first = true;
     unsubCloud = fb.fsM.onSnapshot(cloudCol(), snap => {
       snap.docChanges().forEach(ch => {
         const id = ch.doc.id;
         if (ch.type === "removed") { if (id !== curId) delete store.items[id]; return; }
-        if (id === curId) return;   /* jangan menimpa proyek yang sedang disunting */
-        try {
-          const d = ch.doc.data(), st = JSON.parse(d.state);
-          if (validState(st)) { fixUid(st); store.items[id] = { updated: d.updated || 0, state: st }; }
-        } catch (e) {}
+        let d, st;
+        try { d = ch.doc.data(); st = JSON.parse(d.state); } catch (e) { return; }
+        if (!validState(st)) return;
+        const upd = d.updated || 0;
+        if (id === curId) {
+          const mine = store.items[id];
+          if (!mine || upd <= mine.updated) return;   /* gema dari tulisan sendiri atau data lebih lama */
+          fixUid(st); mine.state = st; mine.updated = upd;
+          pendingRemote = true; remoteApplyIfIdle();
+          return;
+        }
+        fixUid(st); store.items[id] = { updated: upd, state: st };
       });
       if (first) { first = false; resolve(); }
       else if ($("projects").open) renderProjects();
@@ -614,14 +622,20 @@ function openInitialCloud() {
 async function bootStorage() {
   if (await initCloud()) {
     let user = await waitAuth();
-    if (!user) user = await askLogin();
-    if (!user) {   /* memilih lanjut tanpa cloud */
-      fb = null; cloudNote = "tidak masuk, cloud tidak dipakai";
-      loadLocal(); setSync("Tersimpan di browser · " + cloudNote, ""); return;
+    if (!user) {   /* belum pernah dibuka di browser ini: buat identitas anonim otomatis */
+      try { user = (await fb.authM.signInAnonymously(fb.auth)).user; }
+      catch (e) {
+        const c = (e && e.code) || "";
+        fb = null;
+        cloudNote = c === "auth/operation-not-allowed"
+          ? "aktifkan Anonymous di Firebase (Authentication → Sign-in method)"
+          : "gagal masuk otomatis (" + (c || "error") + ")";
+        loadLocal(); setSync("Tersimpan di browser · " + cloudNote, ""); return;
+      }
     }
     await startCloud(user);
     openInitialCloud();
-    setSync("Tersimpan di cloud", "ok");
+    setSync("Tersimpan di cloud (ruang bersama)", "ok");
     return;
   }
   loadLocal();
@@ -1228,19 +1242,19 @@ function addProject(st, label) {
 }
 function renderAccount() {
   const box = $("pj-acct"); box.textContent = "";
-  if (cloudOn()) {
-    box.append(h("span", { text: "Cloud · masuk sebagai " + (fb.user.email || fb.user.displayName || "akun Google") }));
-    box.append(h("button", { class: "ghost", type: "button", text: "Keluar", onclick: async () => {
-      flushCloud();
-      try { if (unsubCloud) unsubCloud(); await fb.authM.signOut(fb.auth); } catch (e) {}
-      location.reload();
-    } }));
-  } else {
-    box.append(h("span", { text: "Tersimpan di browser ini" + (cloudNote ? " · " + cloudNote : "") }));
-  }
+  if (!cloudOn()) { box.append(h("span", { text: "Tersimpan di browser ini" + (cloudNote ? " · " + cloudNote : "") })); return; }
+  const link = location.href;
+  const inp = h("input", { class: "pj-link", value: link, readonly: "readonly", "aria-label": "Link bersama" });
+  inp.addEventListener("focus", () => inp.select());
+  const copy = h("button", { class: "ghost", type: "button", text: "Salin link", onclick: async () => {
+    try { await navigator.clipboard.writeText(link); pjMsg("Link disalin. Buka di perangkat lain untuk melihat proyek yang sama."); }
+    catch (e) { inp.focus(); inp.select(); pjMsg("Salin manual: tekan Ctrl+C (atau tahan lalu Salin di HP)."); }
+  } });
+  box.append(h("span", { text: "Cloud · ruang bersama. Siapa pun yang membuka link ini melihat proyek yang sama:" }));
+  box.append(h("div", { class: "pj-linkrow" }, inp, copy));
+  box.append(h("div", { class: "pj-hint", text: "Penting: pemegang link bisa melihat, mengubah, dan menghapus semua proyek. Bagikan hanya ke orang yang dipercaya, dan simpan link ini (tanpa link, proyek tidak bisa dibuka lagi)." }));
 }
 function renderProjects() {
-  save(true);
   renderAccount();
   const ul = $("pj-list"); ul.textContent = "";
   Object.keys(store.items).sort(byNewest).forEach(id => {
@@ -1266,14 +1280,14 @@ function renderProjects() {
     del.addEventListener("click", () => {
       if (!t) { del.textContent = "Yakin?"; t = setTimeout(() => { del.textContent = "Hapus"; t = null; }, 3000); return; }
       clearTimeout(t);
-      removeProject(id);
-      if (id === curId) {
-        const rest = Object.keys(store.items).sort(byNewest);
+      const wasCur = id === curId;
+      if (wasCur) {   /* pindah dulu ke proyek lain, baru hapus (kabar "terhapus" dari Firestore memicu penyegaran daftar) */
+        const rest = Object.keys(store.items).filter(k => k !== id).sort(byNewest);
         if (rest.length) { curId = rest[0]; state = store.items[curId].state; fixUid(state); }
         else { curId = newPid(); state = freshState(true); }
-        showCurrent(); save(true);
-        if (!store.items[curId]) save();
       }
+      removeProject(id);
+      if (wasCur) { showCurrent(); save(true); }
       renderProjects(); pjMsg("Proyek dihapus.");
     });
     ul.append(h("li", { class: id === curId ? "cur" : "" }, info, h("div", { class: "btns" }, open, dup, del)));
