@@ -287,8 +287,6 @@ dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
 .sync.err { color: var(--red); }
 body.booting #view-edit { opacity: .55; pointer-events: none; }
 .pj-hint { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
-.pj-linkrow { display: flex; gap: 6px; flex-basis: 100%; }
-.pj-link { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 </style>
 </head>
 <body>
@@ -427,8 +425,8 @@ function freshState(blank) {
 let state = freshState();
 
 /* ===== penyimpanan proyek =====
-   Mode cloud : Firebase Anonymous Auth (otomatis, tanpa login) + Firestore. Proyek disimpan di "ruang bersama":
-               siapa pun yang membuka link dengan kunci ruang yang sama (#r=...) melihat daftar proyek yang sama.
+   Mode cloud : Firebase Anonymous Auth (otomatis, tanpa login) + Firestore. Semua proyek disimpan di satu "ruang bersama"
+               yang ditentukan FB_WORKSPACE: siapa pun yang membuka halaman ini melihat daftar proyek yang sama.
    Mode lokal : localStorage di browser (cadangan otomatis bila cloud tidak tersedia). */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDkT8cS__aQXw5PToC9Jf8F7C2zwWbBxCw",
@@ -442,7 +440,7 @@ const FIREBASE_CONFIG = {
 /* Isi dengan konfigurasi web app Firebase Anda, contoh:
    { apiKey: "...", authDomain: "nama.firebaseapp.com", projectId: "nama", appId: "..." } */
 const FB_VER = "10.14.1";
-const FB_WORKSPACE = null;   /* opsional: kunci tetap (mis. "kode-rahasia-panjang") agar link biasa tanpa #r=... juga masuk ke ruang yang sama */
+const FB_WORKSPACE = "eTnJNyzUEMfL4q4xDMM5JusiO7";   /* kode ruang bersama (huruf/angka/-/_ , 20+ karakter). Diisi: semua pembuka halaman berbagi proyek. Kosong: ruang pribadi per browser. */
 const PROJ_KEY = "anggaran-projects-v2", LAST_KEY = "anggaran-last-project", WS_KEY = "anggaran-ruang";
 let store = { current: null, items: {} };   /* items[id] = { updated, state } */
 let curId = null;
@@ -493,20 +491,13 @@ function randomKey() {
   const a = new Uint8Array(16); crypto.getRandomValues(a);
   return btoa(String.fromCharCode(...a)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function getWorkspace() {   /* urutan: #r= di link, lalu yang tersimpan di browser, lalu FB_WORKSPACE, lalu buat baru */
-  let key = null;
-  const m = location.hash.match(/[#&]r=([A-Za-z0-9_-]{12,64})/);
-  if (m) key = m[1];
-  try { if (key) localStorage.setItem(WS_KEY, key); else key = localStorage.getItem(WS_KEY); } catch (e) {}
-  if (!key && FB_WORKSPACE) key = FB_WORKSPACE;
+function getWorkspace() {
+  if (FB_WORKSPACE) return FB_WORKSPACE;      /* ruang bersama: sama untuk semua pembuka halaman */
+  let key = null;                             /* tanpa kode tetap: ruang pribadi, terikat ke browser ini */
+  try { key = localStorage.getItem(WS_KEY); } catch (e) {}
   if (!key) { key = randomKey(); try { localStorage.setItem(WS_KEY, key); } catch (e) {} }
-  try { history.replaceState(null, "", location.pathname + location.search + "#r=" + key); } catch (e) {}
   return key;
 }
-window.addEventListener("hashchange", () => {   /* link ruang lain ditempel di tab yang sama: pindah ruang */
-  const m = location.hash.match(/[#&]r=([A-Za-z0-9_-]{12,64})/);
-  if (m && wsKey && m[1] !== wsKey) location.reload();
-});
 function cloudCol() {
   return fb.fsM.collection(fb.db, "ruang", wsKey, "projects");
 }
@@ -591,7 +582,7 @@ function startCloud(user) {
     unsubCloud = fb.fsM.onSnapshot(cloudCol(), snap => {
       if (bootAborted) return;
       if (snap.metadata && snap.metadata.fromCache) setSync("Menunggu sambungan ke cloud…", "");
-      else if (!first && !Object.keys(saveTimers).length) setSync("Tersimpan di cloud (ruang bersama)", "ok");
+      else if (!first && !Object.keys(saveTimers).length) setSync("Tersimpan di cloud" + (FB_WORKSPACE ? " (ruang bersama)" : ""), "ok");
       snap.docChanges().forEach(ch => {
         const id = ch.doc.id;
         if (ch.type === "removed") { if (id !== curId) delete store.items[id]; return; }
@@ -641,7 +632,7 @@ async function bootStorage() {
     await startCloud(user);
     if (bootAborted) return;
     openInitialCloud();
-    setSync("Tersimpan di cloud (ruang bersama)", "ok");
+    setSync("Tersimpan di cloud" + (FB_WORKSPACE ? " (ruang bersama)" : ""), "ok");
     return;
   }
   loadLocal();
@@ -1249,16 +1240,13 @@ function addProject(st, label) {
 function renderAccount() {
   const box = $("pj-acct"); box.textContent = "";
   if (!cloudOn()) { box.append(h("span", { text: "Tersimpan di browser ini" + (cloudNote ? " · " + cloudNote : "") })); return; }
-  const link = location.href;
-  const inp = h("input", { class: "pj-link", value: link, readonly: "readonly", "aria-label": "Link bersama" });
-  inp.addEventListener("focus", () => inp.select());
-  const copy = h("button", { class: "ghost", type: "button", text: "Salin link", onclick: async () => {
-    try { await navigator.clipboard.writeText(link); pjMsg("Link disalin. Buka di perangkat lain untuk melihat proyek yang sama."); }
-    catch (e) { inp.focus(); inp.select(); pjMsg("Salin manual: tekan Ctrl+C (atau tahan lalu Salin di HP)."); }
-  } });
-  box.append(h("span", { text: "Cloud · ruang bersama. Siapa pun yang membuka link ini melihat proyek yang sama:" }));
-  box.append(h("div", { class: "pj-linkrow" }, inp, copy));
-  box.append(h("div", { class: "pj-hint", text: "Penting: pemegang link bisa melihat, mengubah, dan menghapus semua proyek. Bagikan hanya ke orang yang dipercaya, dan simpan link ini (tanpa link, proyek tidak bisa dibuka lagi)." }));
+  if (FB_WORKSPACE) {
+    box.append(h("span", { text: "Cloud · ruang bersama: semua yang membuka halaman ini melihat proyek yang sama." }));
+    box.append(h("div", { class: "pj-hint", text: "Siapa pun yang membuka halaman ini bisa melihat, mengubah, dan menghapus semua proyek." }));
+  } else {
+    box.append(h("span", { text: "Cloud · ruang pribadi (terikat ke browser ini)." }));
+    box.append(h("div", { class: "pj-hint", text: "Isi FB_WORKSPACE di kode agar proyek dibagikan ke semua yang membuka halaman." }));
+  }
 }
 function renderProjects() {
   renderAccount();
