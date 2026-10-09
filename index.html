@@ -24,45 +24,10 @@
   --red-tint: #fbebe9;
   --cat-bg: #e4e9ee;
   --focus: #1d5fd6;
+  color-scheme: light;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f151b;
-    --surface: #18212a;
-    --ink: #e7edf3;
-    --muted: #8e9db0;
-    --line: #2a3643;
-    --line-soft: #212c37;
-    --blue: #4a85f0;
-    --blue-ink: #08111f;
-    --red: #ef6a5f;
-    --red-ink: #1c0805;
-    --green: #4cc58a;
-    --green-tint: #17302440;
-    --red-tint: #3a1b1960;
-    --cat-bg: #212c37;
-    --focus: #6b9cf5;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0f151b;
-  --surface: #18212a;
-  --ink: #e7edf3;
-  --muted: #8e9db0;
-  --line: #2a3643;
-  --line-soft: #212c37;
-  --blue: #4a85f0;
-  --blue-ink: #08111f;
-  --red: #ef6a5f;
-  --red-ink: #1c0805;
-  --green: #4cc58a;
-  --green-tint: #17302440;
-  --red-tint: #3a1b1960;
-  --cat-bg: #212c37;
-  --focus: #6b9cf5;
 }
 html { scroll-padding-top: env(safe-area-inset-top, 0px); }
 * { box-sizing: border-box; }
@@ -78,15 +43,34 @@ body {
 .wrap { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
 
 /* ---------- header ---------- */
-.head { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+.head { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.top { flex: 1 1 520px; min-width: 0; }
+.top-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; }
+.top-title label { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
 .title-in {
   font: inherit; font-size: 28px; font-weight: 700; letter-spacing: -0.01em;
-  color: var(--ink); background: transparent; border: 0; border-bottom: 2px solid transparent;
-  padding: 2px 0; width: 100%; max-width: 480px;
+  color: var(--ink); background: transparent; border: 0; border-bottom: 2px solid var(--line);
+  padding: 2px 0; flex: 1 1 260px; min-width: 0; max-width: 520px;
 }
-.title-in:hover { border-bottom-color: var(--line); }
+.title-in::placeholder { font-weight: 500; color: var(--muted); opacity: .7; }
+.title-in:hover { border-bottom-color: var(--muted); }
 .title-in:focus { outline: none; border-bottom-color: var(--focus); }
-.hint { color: var(--muted); margin: 2px 0 0; font-size: 14px; }
+.top-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; }
+.top-k { width: 124px; flex: none; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--ink); }
+.top-k.req::after { content: " *"; color: var(--red); }
+.top-in {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0;
+  flex: 1 1 220px; max-width: 360px;
+}
+.top-in:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
+.top-in[type="date"] { flex: 0 0 160px; color-scheme: light; }
+.dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; }
+.dates .sd { color: var(--muted); font-size: 14px; }
+.invalid { border-color: var(--red) !important; }
+.title-in.invalid { border-bottom-color: var(--red) !important; }
+.req-msg { color: var(--red); font-size: 13.5px; margin: 10px 0 0; font-weight: 500; }
+.hint { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
 .meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .field { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
 .field input, .field select {
@@ -94,7 +78,7 @@ body {
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0;
 }
 .field input:focus, .field select:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
-.field input[type="date"] { color-scheme: light dark; }
+.field input[type="date"] { color-scheme: light; }
 .ghost {
   font: inherit; font-size: 13.5px; color: var(--muted); background: transparent;
   border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer;
@@ -103,7 +87,7 @@ body {
 .ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---------- layout ---------- */
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
@@ -116,18 +100,20 @@ aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
 .v-label { font-size: 13px; opacity: .85; }
 .v-word { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 2px 0 10px; }
 .v-reason { font-size: 13.5px; opacity: .95; margin: -6px 0 10px; }
-.v-gap { font-size: 13.5px; opacity: .9; }
-.v-gap strong { display: block; font-size: 22px; font-weight: 600; opacity: 1; }
-.gauge { height: 8px; border-radius: 4px; background: rgba(255,255,255,.28); margin-top: 14px; overflow: hidden; }
+.v-pct { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; }
+.v-pct strong { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.v-pct span { font-size: 14px; opacity: .92; }
+.v-gap { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 10px; font-size: 13px; opacity: .92; }
+.v-gap strong { font-size: 14px; font-weight: 600; }
+.gauge { height: 8px; border-radius: 4px; background: rgba(255,255,255,.28); margin-top: 10px; overflow: hidden; }
 .verdict.no .gauge { background: rgba(0,0,0,.2); }
 .gauge i { display: block; height: 100%; width: 0; background: currentColor; border-radius: 4px; transition: width .2s; }
-.g-text { font-size: 12.5px; margin-top: 6px; opacity: .9; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-top: 14px; padding: 6px 16px; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
 .row:last-child { border-bottom: 0; }
 .row .k { color: var(--muted); }
-.row .v { font-weight: 600; text-align: right; }
+.row .v { font-weight: 600; text-align: right; white-space: nowrap; }
 .row.strong .k { color: var(--ink); font-weight: 600; }
 .row .neg { color: var(--red); }
 .row .pos { color: var(--green); }
@@ -137,6 +123,11 @@ aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
 }
 .row input:focus, .row select:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
 .row.note .k { font-size: 12.5px; }
+.row .k { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+.row .k .pct { margin-left: 4px; }
+.row .k .unit { margin-left: 0; }
+.row .k .chip { font-weight: 600; color: var(--ink); }
+.row.strong .v { font-size: 15px; }
 .row input.wide { width: 130px; }
 .row input.pct { width: 64px; }
 .row .unit { color: var(--muted); font-weight: 400; margin-left: 4px; }
@@ -221,7 +212,9 @@ tr.off .cell.name { text-decoration: line-through; }
   background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 32px;
 }
 .p-title { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
-.p-meta { color: var(--muted); margin: 4px 0 20px; font-size: 14px; }
+.p-meta { color: var(--ink); margin: 8px 0 20px; font-size: 14px; display: grid; gap: 3px; }
+.p-info { display: flex; gap: 10px; }
+.p-info-k { width: 124px; flex: none; white-space: nowrap; font-weight: 600; }
 .p-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
 @media (max-width: 760px) { .p-grid { grid-template-columns: minmax(0, 1fr); } .paper { padding: 20px 16px; } }
 .p-tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
@@ -294,15 +287,28 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
 <div id="view-edit">
 
   <div class="head">
-    <div>
-      <input class="title-in" id="p-nama" aria-label="Nama proyek" placeholder="Nama proyek">
-      <p class="hint">Ubah angka di sel mana pun, hasilnya langsung berubah di panel kelayakan. Pindah sel dengan tombol panah atau Enter.</p>
-      <div class="meta">
-        <label class="field">Klien <input id="p-klien" placeholder="Nama klien"></label>
-        <label class="field">Venue <input id="p-venue" placeholder="Lokasi"></label>
-        <label class="field">Mulai <input id="p-mulai" type="date"></label>
-        <label class="field">Selesai <input id="p-selesai" type="date"></label>
+    <div class="top">
+      <div class="top-title">
+        <label for="p-nama">Budget Feasibility:</label>
+        <input class="title-in" id="p-nama" aria-label="Nama event (wajib diisi)" placeholder="Nama event (wajib diisi)" autocomplete="off">
       </div>
+      <div class="top-row">
+        <span class="top-k">Tanggal Event:</span>
+        <div class="dates">
+          <input class="top-in" id="p-mulai" type="date" aria-label="Tanggal mulai event">
+          <span class="sd">sampai</span>
+          <input class="top-in" id="p-selesai" type="date" aria-label="Tanggal selesai event">
+        </div>
+      </div>
+      <div class="top-row">
+        <label class="top-k req" for="p-venue">Venue:</label>
+        <input class="top-in" id="p-venue" placeholder="Nama venue (wajib diisi)" autocomplete="off">
+      </div>
+      <div class="top-row">
+        <label class="top-k" for="p-klien">Klien:</label>
+        <input class="top-in" id="p-klien" placeholder="Nama klien (opsional)" autocomplete="off">
+      </div>
+      <p class="req-msg" id="req-msg" role="alert" hidden></p>
     </div>
     <div class="actions">
       <span class="sync" id="sync" role="status"></span>
@@ -311,6 +317,7 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
       <button class="primary go-prev" type="button">Next: Preview →</button>
     </div>
   </div>
+  <p class="hint">Ubah angka di sel mana pun, hasilnya langsung berubah di panel kelayakan. Pindah sel dengan tombol panah atau Enter.</p>
 
   <div class="mini" id="mini" aria-live="polite">
     <div><span id="mini-word">Feasible</span><small id="mini-sub"></small></div>
@@ -321,14 +328,14 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
     <main>
       <div class="legend">
         <span class="l-p">Untung</span>
-        <span class="l-r">Rugi (modal lebih besar dari harga jual)</span>
+        <span class="l-r">Rugi (Modal lebih besar dari Harga Jual)</span>
         <span class="l-o">Impas, kosong, atau tidak ada</span>
       </div>
       <div class="sheet-wrap">
         <table class="sheet" id="sheet">
           <colgroup><col><col class="c-num"><col class="c-num"><col class="c-mar"><col class="c-act"></colgroup>
           <thead>
-            <tr><th>Item</th><th>Harga jual</th><th>Modal</th><th>Margin</th><th style="text-align:center">Ada</th></tr>
+            <tr><th>Item</th><th>Harga Jual</th><th>Modal</th><th>Margin</th><th style="text-align:center">Ada</th></tr>
           </thead>
         </table>
       </div>
@@ -340,34 +347,30 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
       <div class="verdict" id="verdict" aria-live="polite">
         <div class="v-label">Status kelayakan</div>
         <div class="v-word" id="v-word">Feasible</div>
-        <div class="v-reason" id="v-reason"></div>
-        <div class="v-gap"><span id="v-gap-label">Sisa ruang plafon</span><strong id="v-gap"></strong></div>
+        <div class="v-reason" id="v-reason" hidden></div>
+        <div class="v-pct"><strong id="v-pct"></strong><span id="v-pct-label">dari plafon terpakai</span></div>
         <div class="gauge"><i id="gauge"></i></div>
-        <div class="g-text" id="g-text"></div>
+        <div class="v-gap"><span id="v-gap-label">Sisa plafon</span><strong id="v-gap"></strong></div>
       </div>
 
-      <div class="card">
-        <div class="row"><span class="k">Total harga jual</span><span class="v" id="s-jual"></span></div>
-        <div class="row"><span class="k">Total modal</span><span class="v" id="s-modal"></span></div>
-        <div class="row"><span class="k">Margin</span><span class="v" id="s-margin"></span></div>
-        <div class="row"><span class="k">EO Fee <span class="unit">dari total harga jual</span></span>
-          <span><input class="pct" id="in-eo" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen EO Fee"><span class="unit">%</span></span></div>
-        <div class="row"><span class="k">Nilai EO Fee</span><span class="v" id="s-eo"></span></div>
+      <div class="card" aria-label="Plafon klien">
+        <div class="row"><span class="k">Plafon Klien <span class="unit">Before VAT</span></span><input class="wide" id="in-plafon" inputmode="numeric" aria-label="Plafon klien before VAT" placeholder="0"></div>
+        <div class="row"><span class="k">Plafon Before EO Fee</span><span class="v" id="s-max"></span></div>
+        <div class="row"><span class="k">Budget Maximum Before VAT</span><span class="v" id="s-budmax"></span></div>
       </div>
 
-      <div class="card">
-        <div class="row strong"><span class="k">Total sebelum PPN</span><span class="v" id="s-before"></span></div>
-        <div class="row"><span class="k">PPN</span>
-          <span><input class="pct" id="in-vat" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen PPN"><span class="unit">%</span></span></div>
-        <div class="row"><span class="k">Total sesudah PPN</span><span class="v" id="s-after"></span></div>
-        <div class="row note"><span class="k">PPN dibayar klien di luar plafon</span></div>
+      <div class="card" aria-label="Harga Jual">
+        <div class="row"><span class="k">Total Harga Jual Before EO Fee</span><span class="v" id="s-jual"></span></div>
+        <div class="row"><span class="k">EO Fee <input class="pct" id="in-eo" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen EO Fee"><span class="unit">%</span></span><span class="v" id="s-eo"></span></div>
+        <div class="row strong"><span class="k">Total Sebelum VAT</span><span class="v" id="s-before"></span></div>
+        <div class="row"><span class="k">VAT <input class="pct" id="in-vat" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen VAT"><span class="unit">%</span></span><span class="v" id="s-vat"></span></div>
+        <div class="row strong"><span class="k">Total Setelah VAT</span><span class="v" id="s-after"></span></div>
       </div>
 
-      <div class="card">
-        <div class="row"><span class="k">Plafon klien</span><input class="wide" id="in-plafon" inputmode="numeric" aria-label="Plafon klien" placeholder="0"></div>
-        <div class="row"><span class="k">Batas total harga jual</span><span class="v" id="s-max"></span></div>
-        <div class="row"><span class="k">Margin dari total</span><span class="v" id="s-mpct"></span></div>
-        <div class="row"><span class="k">Item rugi</span><span class="v" id="s-loss"></span></div>
+      <div class="card" aria-label="Modal dan margin">
+        <div class="row"><span class="k">Total Modal</span><span class="v" id="s-modal"></span></div>
+        <div class="row"><span class="k">Total Margin</span><span class="v" id="s-margin"></span></div>
+        <div class="row"><span class="k">Persen Margin</span><span class="v" id="s-mpct"></span></div>
       </div>
     </aside>
   </div>
@@ -411,14 +414,13 @@ const STORE_KEY = "anggaran-event-v1";
 let uid = 0;
 const nid = () => "i" + (++uid);
 
-function freshState(blank) {
+function freshState() {   /* semua isian kosong; persen EO Fee & VAT tetap nilai awal */
   return {
-    project: blank ? { nama: "Proyek baru", klien: "", venue: "", mulai: "", selesai: "" }
-                   : { nama: "Run Festival", klien: "BCA", venue: "Stadion GBK", mulai: "2026-07-10", selesai: "2026-09-10" },
-    plafon: 400000, eoPct: 10, vatPct: 11,
+    project: { nama: "", klien: "", venue: "", mulai: "", selesai: "" },
+    plafon: 0, eoPct: 10, vatPct: 11,
     cats: TEMPLATE.map(([name, items]) => ({
       id: nid(), name, custom: false,
-      items: items.map(([n, j, m]) => ({ id: nid(), name: n, jual: j, modal: m, off: false, custom: false }))
+      items: items.map(([n]) => ({ id: nid(), name: n, jual: 0, modal: 0, off: false, custom: false }))
     }))
   };
 }
@@ -752,7 +754,7 @@ function itemRow(cat, it) {
   if (!it.custom) nameInp.readOnly = true, nameInp.tabIndex = -1;
   else nameInp.addEventListener("input", () => { it.name = nameInp.value; save(); });
 
-  const jual = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " harga jual", placeholder: "0", "data-col": "jual" });
+  const jual = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " Harga Jual", placeholder: "0", "data-col": "jual" });
   const modal = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
   bindNum(jual, () => it.jual, v => it.jual = v);
   bindNum(modal, () => it.modal, v => it.modal = v);
@@ -826,37 +828,47 @@ function update() {
   sm.className = "v " + (margin < 0 ? "neg" : margin > 0 ? "pos" : "");
   $("s-eo").textContent = rp(eo);
   $("s-before").textContent = rp(before);
+  $("s-vat").textContent = rp(vat);
   $("s-after").textContent = rp(after);
   $("s-max").textContent = rp(maxT);
+  $("s-budmax").textContent = rp(state.plafon);
   $("s-mpct").textContent = T > 0 ? (margin / T * 100).toFixed(1).replace(".", ",") + "%" : "–";
-  const sl = $("s-loss");
-  sl.textContent = lossN ? lossN + " item" : "Tidak ada";
-  sl.className = "v " + (lossN ? "neg" : "");
 
+  const usage = state.plafon > 0 ? basisTotal / state.plafon : (basisTotal > 0 ? Infinity : 0);
   const v = $("verdict");
   v.className = "verdict" + (ok ? "" : " no");
   $("v-word").textContent = ok ? "Feasible" : "Tidak feasible";
-  $("v-reason").textContent = ok ? "Muat di plafon, margin tidak negatif" : reasons.join(" · ");
-  $("v-gap-label").textContent = ok ? "Sisa ruang plafon" : "Melebihi plafon";
+  const vr = $("v-reason");
+  vr.hidden = ok;
+  vr.textContent = ok ? "" : reasons.join(" · ");
+  $("v-pct").textContent = pctText(usage, gap);
+  $("v-pct-label").textContent = isFinite(usage) ? "dari plafon terpakai" : "Plafon belum diisi";
+  $("v-gap-label").textContent = gap < 0 ? "Melebihi plafon" : "Sisa plafon";
   $("v-gap").textContent = rp(Math.abs(gap));
-  const usage = state.plafon > 0 ? basisTotal / state.plafon : (basisTotal > 0 ? Infinity : 0);
   $("gauge").style.width = Math.min(usage, 1) * 100 + "%";
-  $("g-text").textContent = isFinite(usage)
-    ? Math.round(usage * 100) + "% dari plafon terpakai"
-    : "Plafon belum diisi";
 
   const mini = $("mini");
   mini.classList.toggle("no", !ok);
   $("mini-word").textContent = ok ? "Feasible" : "Tidak feasible";
-  $("mini-sub").textContent = ok ? Math.round(isFinite(usage) ? usage * 100 : 0) + "% dari plafon" : reasons.join(" · ");
-  $("mini-gap").textContent = (ok ? "Sisa " : "Lebih ") + rp(Math.abs(gap));
+  $("mini-sub").textContent = ok ? pctText(usage, gap) + " dari plafon" : reasons.join(" · ");
+  $("mini-gap").textContent = (gap < 0 ? "Lebih " : "Sisa ") + rp(Math.abs(gap));
 }
 
 /* ===== kontrol di luar tabel ===== */
 function bindStatic() {   /* dipasang sekali */
   [["p-nama", "nama"], ["p-klien", "klien"], ["p-venue", "venue"], ["p-mulai", "mulai"], ["p-selesai", "selesai"]].forEach(([id, key]) => {
     const el = $(id);
-    el.oninput = () => { state.project[key] = el.value; save(); };
+    el.oninput = () => {
+      const p = state.project;
+      p[key] = el.value;
+      el.classList.remove("invalid");
+      if (!$("p-nama").classList.contains("invalid") && !$("p-venue").classList.contains("invalid")) $("req-msg").hidden = true;
+      if (key === "mulai") {
+        $("p-selesai").min = p.mulai || "";
+        if (p.mulai && p.selesai && p.selesai < p.mulai) { p.selesai = p.mulai; $("p-selesai").value = p.selesai; }
+      }
+      save();
+    };
   });
   bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v);
   [["in-eo", "eoPct"], ["in-vat", "vatPct"]].forEach(([id, key]) => {
@@ -866,7 +878,9 @@ function bindStatic() {   /* dipasang sekali */
 }
 function syncStatic() {   /* isi ulang kolom dari proyek yang sedang dibuka */
   const p = state.project;
-  [["p-nama", "nama"], ["p-klien", "klien"], ["p-venue", "venue"], ["p-mulai", "mulai"], ["p-selesai", "selesai"]].forEach(([id, key]) => { $(id).value = p[key] || ""; });
+  [["p-nama", "nama"], ["p-klien", "klien"], ["p-venue", "venue"], ["p-mulai", "mulai"], ["p-selesai", "selesai"]].forEach(([id, key]) => { $(id).value = p[key] || ""; $(id).classList.remove("invalid"); });
+  $("p-selesai").min = p.mulai || "";
+  $("req-msg").hidden = true;
   $("in-plafon").value = state.plafon ? fmt(state.plafon) : "";
   $("in-eo").value = state.eoPct; $("in-vat").value = state.vatPct;
 }
@@ -911,6 +925,12 @@ function statusReasons(gap, margin) {
   if (margin < 0) r.push("Margin negatif");
   return r;
 }
+/* persen plafon terpakai; kalau melebihi plafon, tidak pernah tampil 100% atau kurang */
+function pctText(usage, gap) {
+  if (!isFinite(usage)) return "–";
+  const p = Math.round(usage * 100);
+  return (gap < 0 ? Math.max(p, 101) : p) + "%";
+}
 function sgn(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n)); }
 function calc(st = state) {
   let T = 0, M = 0, lossN = 0;
@@ -935,13 +955,16 @@ function buildPreview() {
   const c = calc(), p = state.project, root = $("prev-body");
   root.textContent = "";
 
-  const dates = [longDate(p.mulai), longDate(p.selesai)].filter(Boolean).join(" – ");
-  const meta = [p.klien, p.venue, dates].filter(Boolean).join("  ·  ");
-  root.append(h("h1", { class: "p-title", text: p.nama || "Anggaran Event" }), h("p", { class: "p-meta", text: meta }));
+  const dl = [longDate(p.mulai), longDate(p.selesai)].filter(Boolean);
+  const dates = dl.length === 2 && dl[0] !== dl[1] ? dl[0] + " – " + dl[1] : (dl[0] || "–");
+  const info = (k, v) => h("div", { class: "p-info" }, h("span", { class: "p-info-k", text: k }), h("span", { text: v || "–" }));
+  root.append(
+    h("h1", { class: "p-title", text: "Budget Feasibility: " + (p.nama || "–") }),
+    h("div", { class: "p-meta" }, info("Tanggal Event:", dates), info("Venue:", p.venue), p.klien ? info("Klien:", p.klien) : null));
 
   /* kiri: tabel per kategori */
   const table = h("table", { class: "ptable" },
-    h("thead", {}, h("tr", {}, h("th", { text: "Item" }), h("th", { text: "Harga jual" }), h("th", { text: "Modal" }), h("th", { text: "Margin" }))));
+    h("thead", {}, h("tr", {}, h("th", { text: "Item" }), h("th", { text: "Harga Jual" }), h("th", { text: "Modal" }), h("th", { text: "Margin" }))));
   const shown = visibleCats();
   shown.forEach(({ cat, items }, ci) => {
     let cj = 0, cm = 0;
@@ -973,27 +996,28 @@ function buildPreview() {
   const verdict = h("div", { class: "verdict" + (c.ok ? "" : " no") },
     h("div", { class: "v-label", text: "Status kelayakan" }),
     h("div", { class: "v-word", text: c.ok ? "Feasible" : "Tidak feasible" }),
-    h("div", { class: "v-reason", text: c.ok ? "Muat di plafon, margin tidak negatif" : statusReasons(c.gap, c.margin).join(" · ") }),
-    h("div", { class: "v-gap" }, h("span", { text: c.ok ? "Sisa ruang plafon" : "Melebihi plafon" }), h("strong", { text: rp(Math.abs(c.gap)) })),
+    c.ok ? null : h("div", { class: "v-reason", text: statusReasons(c.gap, c.margin).join(" · ") }),
+    h("div", { class: "v-pct" }, h("strong", { text: pctText(c.usage, c.gap) }), h("span", { text: isFinite(c.usage) ? "dari plafon terpakai" : "Plafon belum diisi" })),
     h("div", { class: "gauge" }, h("i", { style: "width:" + Math.min(c.usage, 1) * 100 + "%" })),
-    h("div", { class: "g-text", text: isFinite(c.usage) ? Math.round(c.usage * 100) + "% dari plafon terpakai" : "Plafon belum diisi" }));
+    h("div", { class: "v-gap" }, h("span", { text: c.gap < 0 ? "Melebihi plafon" : "Sisa plafon" }), h("strong", { text: rp(Math.abs(c.gap)) })));
+  const rowN = (kKids, v, cls, vcls) => h("div", { class: "row" + (cls ? " " + cls : "") },
+    h("span", { class: "k" }, ...kKids), v == null ? null : h("span", { class: "v" + (vcls ? " " + vcls : ""), text: v }));
+  const chip = t => h("span", { class: "chip", text: t });
   const aside = h("div", {}, verdict,
     h("div", { class: "card" },
-      row("Total harga jual", rp(c.T)),
-      row("Total modal", rp(c.M)),
-      row("Margin", rp(c.margin), "", c.margin < 0 ? "neg" : c.margin > 0 ? "pos" : ""),
-      row("EO Fee (dari total harga jual)", state.eoPct + "%"),
-      row("Nilai EO Fee", rp(c.eo))),
+      row("Plafon Klien Before VAT", rp(state.plafon)),
+      row("Plafon Before EO Fee", rp(c.maxT)),
+      row("Budget Maximum Before VAT", rp(state.plafon))),
     h("div", { class: "card" },
-      row("Total sebelum PPN", rp(c.before), "strong"),
-      row("PPN", state.vatPct + "%"),
-      row("Total sesudah PPN", rp(c.after)),
-      row("PPN dibayar klien di luar plafon", null, "note")),
+      row("Total Harga Jual Before EO Fee", rp(c.T)),
+      rowN(["EO Fee", chip(state.eoPct + "%")], rp(c.eo)),
+      row("Total Sebelum VAT", rp(c.before), "strong"),
+      rowN(["VAT", chip(state.vatPct + "%")], rp(c.vat)),
+      row("Total Setelah VAT", rp(c.after), "strong")),
     h("div", { class: "card" },
-      row("Plafon klien", rp(state.plafon)),
-      row("Batas total harga jual", rp(c.maxT)),
-      row("Margin dari total", c.T > 0 ? (c.margin / c.T * 100).toFixed(1).replace(".", ",") + "%" : "–"),
-      row("Item rugi", c.lossN ? c.lossN + " item" : "Tidak ada", "", c.lossN ? "neg" : "")));
+      row("Total Modal", rp(c.M)),
+      row("Total Margin", rp(c.margin), "", c.margin < 0 ? "neg" : c.margin > 0 ? "pos" : ""),
+      row("Persen Margin", c.T > 0 ? (c.margin / c.T * 100).toFixed(1).replace(".", ",") + "%" : "–")));
 
   root.append(h("div", { class: "p-grid" }, h("div", { class: "p-tablewrap" }, table), aside));
   root.append(h("div", { class: "p-foot", text: "Dibuat " + new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) }));
@@ -1005,7 +1029,18 @@ function showView(name) {
   if (prev) buildPreview();
   window.scrollTo(0, 0);
 }
-document.querySelectorAll(".go-prev").forEach(b => b.addEventListener("click", () => showView("prev")));
+function checkRequired() {
+  const need = [["p-nama", "nama event"], ["p-venue", "venue"]].filter(([id]) => !$(id).value.trim());
+  ["p-nama", "p-venue"].forEach(id => $(id).classList.toggle("invalid", need.some(n => n[0] === id)));
+  const msg = $("req-msg");
+  if (!need.length) { msg.hidden = true; return true; }
+  msg.textContent = "Isi " + need.map(n => n[1]).join(" dan ") + " dulu sebelum lanjut ke Preview.";
+  msg.hidden = false;
+  window.scrollTo(0, 0);
+  $(need[0][0]).focus();
+  return false;
+}
+document.querySelectorAll(".go-prev").forEach(b => b.addEventListener("click", () => { if (checkRequired()) showView("prev"); }));
 $("back").addEventListener("click", () => showView("edit"));
 /* muat 1 halaman A4 portrait: perlebar area susun lalu kecilkan (scale) sampai tinggi pas */
 const PAGE_W = 718, PAGE_H = 1040, PAD = 48;   /* PAD: ruang cadangan di bawah agar baris terakhir tidak terpotong */   /* area cetak A4 dengan margin 10mm, dalam px CSS */
@@ -1147,9 +1182,11 @@ function buildWorkbook() {
   kv(vatR, `K${beforeR}*E${vatR}`, vatV);
   kv(afterR, `SUM(K${beforeR}:K${vatR})`, before + vatV);
 
-  /* catatan internal: persen margin */
-  put("N13", "PERSEN MARGIN:", { fill: YEL });
-  put("O13", { formula: `IF(K${costR}=0,0,SUM(N16:N${bodyEnd})/K${costR})`, result: sumJual ? sumMargin / sumJual : 0 }, { fmt: "0.0%", fill: YEL });
+  /* catatan internal: total margin, sejajar dengan baris Agency Fee di bawah kolom MODAL/MARGIN */
+  const tm = sumMargin;
+  put("M" + agencyR, "MARGIN:", { fill: YEL });
+  put("N" + agencyR, { formula: `SUM(N17:N${bodyEnd})`, result: tm }, { fmt: ACC2, fill: YEL });
+  put("O" + agencyR, { formula: `IF(K${costR}=0,0,N${agencyR}/K${costR})`, result: sumJual ? tm / sumJual : 0 }, { fmt: "0.0%", fill: YEL });
 
   /* syarat & ketentuan */
   const tc = afterR + 2;
@@ -1186,7 +1223,6 @@ function buildWorkbook() {
 let dlCap = null, directMode = false;   /* directMode: dibuka sebagai file HTML biasa (tanpa claude.ai) */
 async function exportExcel() {
   const btn = $("xlsx"), msg = $("x-msg");
-  if (!dlCap && !directMode) return;
   if (typeof ExcelJS === "undefined") { msg.textContent = "Pustaka Excel gagal dimuat."; return; }
   btn.disabled = true; msg.textContent = "";
   try {
@@ -1200,8 +1236,8 @@ async function exportExcel() {
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
-    msg.textContent = "Tersimpan";
-    setTimeout(() => { msg.textContent = ""; }, 2500);
+    msg.textContent = (dlCap || directMode) ? "Tersimpan" : "Jika file tidak terunduh, buka file HTML ini langsung di browser (klik dua kali)";
+    setTimeout(() => { msg.textContent = ""; }, (dlCap || directMode) ? 2500 : 9000);
   } catch (e) {
     msg.textContent = e && e.code === "declined" ? "" : "Gagal menyimpan (" + ((e && e.code) || "error") + ")";
   } finally { btn.disabled = false; }
@@ -1212,9 +1248,8 @@ $("xlsx").addEventListener("click", exportExcel);
     if (window.claude && window.claude.use) dlCap = await window.claude.use("downloads");
     else if (!window.claude) directMode = true;
   } catch (e) {}
-  $("xlsx").hidden = !(dlCap || directMode);
+  $("xlsx").hidden = false;   /* selalu tampil; unduhan langsung dicoba bila tidak ada kemampuan downloads */
 })();
-
 
 /* ===== daftar proyek ===== */
 const dlg = $("projects");
