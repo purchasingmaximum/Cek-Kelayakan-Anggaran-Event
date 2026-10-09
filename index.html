@@ -280,6 +280,49 @@ dialog#projects::backdrop { background: rgba(8, 14, 20, .5); }
 .sync.err { color: var(--red); }
 body.booting #view-edit { opacity: .55; pointer-events: none; }
 .pj-hint { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- tampilan HP ---------- */
+@media (max-width: 600px) {
+  .wrap { padding: 16px 14px 48px; }
+  .top-title label, .title-in { font-size: 21px; }
+  .title-in { flex: 1 1 100%; max-width: none; }
+  .top-k { width: 100%; }
+  .top-in { flex: 1 1 100%; max-width: none; }
+  .dates { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+  .top-in[type="date"] { flex: none; width: 100%; }
+  .actions { width: 100%; }
+  .actions .sync { flex-basis: 100%; }
+  .actions .ghost, .actions .primary { flex: 1 1 auto; text-align: center; }
+  .mini { margin: 0 -14px 12px; padding: 10px 14px; }
+  .v-pct strong { font-size: 36px; }
+  .card { padding: 4px 14px; }
+  .row { font-size: 13.5px; gap: 8px; }
+  .row .k { min-width: 0; }
+  .paper { padding: 16px 12px; }
+  .p-title { font-size: 20px; }
+  .p-info-k { width: 108px; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar .actions { justify-content: stretch; }
+  .toolbar .xmsg { flex-basis: 100%; }
+  .toolbar .ghost, .toolbar .primary { flex: 1 1 auto; text-align: center; }
+  .ptable th, .ptable td, .ptable tr.cat td { padding-left: 8px; padding-right: 8px; }
+  .ptable .td-mar { padding-left: 8px !important; padding-right: 8px !important; }
+  .ptable .td-mar small { display: none; }
+  .cat-in { width: 140px; }
+  dialog#projects { padding: 14px; }
+  /* tabel item: kolom Margin disembunyikan di HP supaya Harga Jual & Modal muat tanpa geser (warna baris tetap menunjukkan untung/rugi) */
+  table.sheet { min-width: 0; }
+  .sheet th:nth-child(4), .sheet td:nth-child(4) { display: none; }
+  .sheet col:nth-child(4) { display: none; }
+  .c-num { width: 94px; }
+  .c-act { width: 46px; }
+  .sheet th { padding: 10px 8px; }
+  tr.cat td { padding: 9px 8px; }
+  .cell { padding: 10px 8px; font-size: 14px; }
+  .cell.name { text-overflow: ellipsis; }
+  .td-act .x { padding: 6px 4px; }
+  tr.cat .cat-name { flex-wrap: wrap; gap: 2px 6px; }
+}
 </style>
 </head>
 <body>
@@ -1127,7 +1170,7 @@ function buildWorkbook() {
     put("D" + (10 + i), ": " + (val || ""), { font: FB });
   });
   const logoId = wb.addImage({ base64: LOGO_B64, extension: "png" });
-  ws.addImage(logoId, { tl: { col: 1.85, row: 1.95 }, ext: { width: 383, height: 121 } });
+  ws.addImage(logoId, { tl: { col: 2, row: 2 }, ext: { width: 383, height: 121 } });   /* mulai tepat di tepi kiri kolom C, baris 3 */
 
   /* judul kolom */
   grid(15, true);
