@@ -191,6 +191,9 @@ tr.off .cell.name { text-decoration: line-through; }
 
 /* ---------- tombol utama & preview ---------- */
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.head > .actions { position: relative; flex: 0 0 auto; }
+.head > .actions .sync { position: absolute; right: 0; top: 100%; margin-top: 6px; white-space: nowrap; }
+#reset { min-width: 222px; }
 .primary { font: inherit; font-weight: 600; font-size: 14px; color: var(--blue-ink); background: var(--blue); border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer; }
 .primary:hover { filter: brightness(1.08); }
 .primary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -282,7 +285,9 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
   .dates { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
   .top-in[type="date"] { flex: none; width: 100%; }
   .actions { width: 100%; }
-  .actions .sync { flex-basis: 100%; }
+  .head > .actions { flex: 1 1 100%; }
+  .head > .actions .sync { position: static; margin-top: 0; white-space: normal; flex-basis: 100%; min-height: 18px; }
+  #reset { min-width: 0; }
   .actions .ghost, .actions .primary { flex: 1 1 auto; text-align: center; }
   .mini { margin: 0 -14px 12px; padding: 10px 14px; }
   .card { padding: 4px 14px; }
