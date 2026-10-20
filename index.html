@@ -765,15 +765,16 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
    bergerak di dalam angka seperti biasa, jadi nilai masih bisa disunting digit per digit. */
 function moveCell(inp, dr, dc) {
   const cols = ["name", "jual", "modal"];
-  const rows = [...document.querySelectorAll("#sheet tbody tr")].filter(tr => {
-    const a = tr.querySelector('input[data-col="jual"]'); return a && !a.disabled;
-  });
-  const ri = rows.indexOf(inp.closest("tr")); if (ri < 0) return false;
-  const ci = cols.indexOf(inp.dataset.col) + dc, rj = ri + dr;
-  if (ci < 0 || ci > 1 || rj < 0 || rj >= rows.length) return false;
-  const tgt = rows[rj].querySelector('input[data-col="' + cols[ci] + '"]');
+  const ok = (tr, col) => { const a = tr.querySelector('input[data-col="' + col + '"]'); return a && !a.disabled && !a.readOnly ? a : null; };
+  const rows = [...document.querySelectorAll("#sheet tbody tr")].filter(tr => cols.some(c => ok(tr, c)));
+  const ri = rows.indexOf(inp.closest("tr")), ci = cols.indexOf(inp.dataset.col);
+  if (ri < 0 || ci < 0) return false;
+  let tgt = null;
+  if (dc) { for (let c = ci + dc; c >= 0 && c < cols.length && !tgt; c += dc) tgt = ok(rows[ri], cols[c]); }
+  else { for (let r = ri + dr; r >= 0 && r < rows.length && !tgt; r += dr) tgt = ok(rows[r], cols[ci]); }
   if (!tgt) return false;
   tgt.focus();
+  try { tgt.select(); } catch (e) {}
   return true;
 }
 function gridNav(e) {
@@ -836,7 +837,10 @@ function render() {
 function itemRow(cat, it) {
   const nameInp = h("input", { class: "cell name", value: it.name, "aria-label": "Nama item", placeholder: "Nama item" });
   if (!it.custom) nameInp.readOnly = true, nameInp.tabIndex = -1;
-  else nameInp.addEventListener("input", () => { it.name = nameInp.value; save(); });
+  else {
+    nameInp.addEventListener("input", () => { it.name = nameInp.value; save(); });
+    nameInp.setAttribute("data-col", "name"); nameInp.addEventListener("keydown", gridNav);
+  }
 
   const jual = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " Harga Jual", placeholder: "0", "data-col": "jual" });
   const modal = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
@@ -867,8 +871,9 @@ function itemRow(cat, it) {
 }
 
 function subRow(cat, it, sb) {
-  const nameInp = h("input", { class: "cell name", value: sb.name, "aria-label": "Nama sub item", placeholder: "Sub item" });
+  const nameInp = h("input", { class: "cell name", value: sb.name, "aria-label": "Nama sub item", placeholder: "Sub item", "data-col": "name" });
   nameInp.addEventListener("input", () => { sb.name = nameInp.value; save(); });
+  nameInp.addEventListener("keydown", gridNav);
   const jual = h("input", { class: "cell", inputmode: "decimal", "aria-label": "Sub item Harga Jual", placeholder: "0", "data-col": "jual" });
   const modal = h("input", { class: "cell", inputmode: "decimal", "aria-label": "Sub item modal", placeholder: "0", "data-col": "modal" });
   bindNum(jual, () => sb.jual, v => sb.jual = v, sb, "jual");
