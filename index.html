@@ -764,7 +764,7 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
    sedang terpilih (baru masuk sel) atau kursor SUDAH berada di ujung angka. Selain itu kursor
    bergerak di dalam angka seperti biasa, jadi nilai masih bisa disunting digit per digit. */
 function moveCell(inp, dr, dc) {
-  const cols = ["jual", "modal"];
+  const cols = ["name", "jual", "modal"];
   const rows = [...document.querySelectorAll("#sheet tbody tr")].filter(tr => {
     const a = tr.querySelector('input[data-col="jual"]'); return a && !a.disabled;
   });
