@@ -137,7 +137,7 @@ table.sheet { width: 100%; min-width: 600px; border-collapse: collapse; }
 .sheet td { padding: 0; border-bottom: 1px solid var(--line-soft); }
 .c-num { width: 150px; }
 .c-mar { width: 150px; }
-.c-act { width: 84px; }
+.c-act { width: 112px; }
 tr.cat td { background: var(--cat-bg); font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--line); }
 tr.cat td.n { text-align: right; font-weight: 600; }
 tr.cat .cat-name { display: flex; align-items: center; gap: 8px; }
@@ -170,6 +170,12 @@ tr.empty .td-mar, tr.even .td-mar { color: var(--muted); font-weight: 400; }
 tr.off .cell, tr.off .td-mar { opacity: .4; }
 tr.off .cell.name { text-decoration: line-through; }
 
+.x.add-sub:hover { color: var(--blue); }
+.x.add-sub { font-weight: 600; font-size: 17px; }
+tr.subrow .cell.name { padding-left: 52px; }
+tr.parent .cell.name { font-weight: 600; }
+.ptable tr.parent td { font-weight: 600; }
+.cell.invalid { outline: 2px solid var(--red); outline-offset: -2px; }
 .addrow td { padding: 6px 12px; border-bottom: 1px solid var(--line); }
 .add { font: inherit; font-size: 13.5px; color: var(--blue); background: transparent; border: 0; cursor: pointer; padding: 4px 0; }
 .add:hover { text-decoration: underline; }
@@ -310,11 +316,12 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
   .sheet th:nth-child(4), .sheet td:nth-child(4) { display: none; }
   .sheet col:nth-child(4) { display: none; }
   .c-num { width: 94px; }
-  .c-act { width: 46px; }
+  .c-act { width: 72px; }
   .sheet th { padding: 10px 8px; }
   tr.cat td { padding: 9px 8px; }
   .cell { padding: 10px 8px; font-size: 14px; }
   .cell.name { text-overflow: ellipsis; }
+  tr.subrow .cell.name { padding-left: 30px; }
   .td-act .x { padding: 6px 4px; }
   tr.cat .cat-name { flex-wrap: wrap; gap: 2px 6px; }
 }
@@ -448,7 +455,7 @@ function freshState() {   /* semua isian kosong; persen EO Fee & VAT tetap nilai
     plafon: 0, eoPct: 10, vatPct: 11,
     cats: TEMPLATE.map(([name, items]) => ({
       id: nid(), name, custom: false,
-      items: items.map(([n]) => ({ id: nid(), name: n, jual: 0, modal: 0, off: false, custom: false }))
+      items: items.map(([n]) => ({ id: nid(), name: n, jual: 0, modal: 0, off: false, custom: false, subs: [] }))
     }))
   };
 }
@@ -687,10 +694,41 @@ function h(tag, attrs, ...kids) {
 }
 const letter = i => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : "");
 
-function bindNum(inp, getVal, setVal) {
+/* kalkulator rumus: + - * / ( ) dengan prioritas; tanpa eval */
+function evalExpr(src) {
+  const s = src.replace(/\s+/g, "").replace(/,/g, ".");
+  if (!s || !/^[0-9+\-*/().]+$/.test(s)) return null;
+  let i = 0;
+  function expr() { let v = term(); while (s[i] === "+" || s[i] === "-") { const o = s[i++]; const r = term(); v = o === "+" ? v + r : v - r; } return v; }
+  function term() { let v = unary(); while (s[i] === "*" || s[i] === "/") { const o = s[i++]; const r = unary(); if (o === "/") { if (r === 0) throw 0; v /= r; } else v *= r; } return v; }
+  function unary() { if (s[i] === "-") { i++; return -unary(); } if (s[i] === "+") { i++; return unary(); } return prim(); }
+  function prim() {
+    if (s[i] === "(") { i++; const v = expr(); if (s[i] !== ")") throw 0; i++; return v; }
+    const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i)); if (!m) throw 0;
+    i += m[0].length; return parseFloat(m[0]);
+  }
+  try { const v = expr(); return i === s.length && isFinite(v) ? v : null; } catch (e) { return null; }
+}
+
+function bindNum(inp, getVal, setVal, fxo, fxk) {
+  /* fxo.fx[fxk] menyimpan teks rumus terakhir yang valid, supaya bisa ditinjau lagi saat sel diklik */
+  const fxGet = () => (fxo && fxo.fx && fxo.fx[fxk]) || "";
+  const fxSet = f => {
+    if (fxo) { if (f) (fxo.fx = fxo.fx || {})[fxk] = f; else if (fxo.fx) delete fxo.fx[fxk]; }
+    inp.title = f || "";
+  };
+  const fxValid = f => { const r = evalExpr(f.slice(1)); return r !== null && Math.round(r) === getVal(); };
   inp.value = getVal() ? fmt(getVal()) : "";
-  inp.addEventListener("focus", () => inp.select());
+  { const f = fxGet(); if (f) { if (fxValid(f)) inp.title = f; else fxSet(""); } }
+  inp.addEventListener("focus", () => {
+    const f = fxGet();
+    if (f) { if (fxValid(f)) inp.value = f; else fxSet(""); }
+    inp.select();
+  });
   inp.addEventListener("input", () => {
+    inp.classList.remove("invalid");
+    if (inp.value.trim().startsWith("=")) return;   /* mode rumus: ketik bebas, dihitung saat Enter / pindah sel */
+    if (fxGet()) fxSet("");
     const pos = inp.selectionStart || 0;
     const before = inp.value.slice(0, pos).replace(/\D/g, "").length;
     const digits = inp.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 13);
@@ -701,6 +739,24 @@ function bindNum(inp, getVal, setVal) {
     try { inp.setSelectionRange(c, c); } catch (e) {}
     setVal(n); update(); save();
   });
+  const commit = () => {
+    const v = inp.value.trim();
+    if (!v.startsWith("=")) return;
+    const r = evalExpr(v.slice(1));
+    const n = r === null ? null : Math.round(r);
+    if (n === null || n < 0 || n > 9999999999999) {
+      inp.value = getVal() ? fmt(getVal()) : "";
+      inp.classList.add("invalid");
+      setTimeout(() => inp.classList.remove("invalid"), 1800);
+      return;
+    }
+    const same = n === getVal() && fxGet() === v;
+    inp.value = n ? fmt(n) : "";
+    if (same) return;   /* hanya dilihat, tidak diubah: tidak perlu menyimpan ulang */
+    fxSet(v); setVal(n); update(); save();
+  };
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
+  inp.addEventListener("blur", commit);
 }
 
 /* ===== navigasi sel ala Excel =====
@@ -764,7 +820,7 @@ function render() {
     tb.append(h("tr", { class: "cat" }, h("td", {}, nameCell), jualT, modalT, marT, actCell));
     refs.cats[cat.id] = { jualT, modalT, marT };
 
-    cat.items.forEach(it => tb.append(itemRow(cat, it)));
+    cat.items.forEach(it => { tb.append(itemRow(cat, it)); (it.subs || []).forEach(sb => tb.append(subRow(cat, it, sb))); });
 
     const addBtn = h("button", { class: "add", type: "button", text: "+ Tambah item",
       onclick: () => {
@@ -784,8 +840,8 @@ function itemRow(cat, it) {
 
   const jual = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " Harga Jual", placeholder: "0", "data-col": "jual" });
   const modal = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
-  bindNum(jual, () => it.jual, v => it.jual = v);
-  bindNum(modal, () => it.modal, v => it.modal = v);
+  bindNum(jual, () => it.jual, v => it.jual = v, it, "jual");
+  bindNum(modal, () => it.modal, v => it.modal = v, it, "modal");
   [jual, modal].forEach(inp => inp.addEventListener("keydown", gridNav));
 
   const mar = h("td", { class: "td-mar" });
@@ -794,6 +850,13 @@ function itemRow(cat, it) {
   ada.addEventListener("change", () => { it.off = !ada.checked; update(); save(); });
 
   const act = h("td", { class: "td-act" }, ada);
+  act.append(h("button", { class: "x add-sub", type: "button", title: "Tambah sub item", "aria-label": "Tambah sub item", text: "+",
+    onclick: () => {
+      const sb = { id: nid(), name: "", jual: 0, modal: 0, off: false };
+      if (!(it.subs && it.subs.length)) { it.jual = 0; it.modal = 0; }
+      (it.subs = it.subs || []).push(sb); render(); update(); save();
+      const r = refs.items[sb.id]; if (r) r.nameInp.focus();
+    } }));
   if (it.custom) {
     act.append(h("button", { class: "x", type: "button", title: "Hapus item", "aria-label": "Hapus item", text: "×",
       onclick: () => { cat.items = cat.items.filter(x => x.id !== it.id); render(); update(); save(); } }));
@@ -803,6 +866,54 @@ function itemRow(cat, it) {
   return tr;
 }
 
+function subRow(cat, it, sb) {
+  const nameInp = h("input", { class: "cell name", value: sb.name, "aria-label": "Nama sub item", placeholder: "Sub item" });
+  nameInp.addEventListener("input", () => { sb.name = nameInp.value; save(); });
+  const jual = h("input", { class: "cell", inputmode: "decimal", "aria-label": "Sub item Harga Jual", placeholder: "0", "data-col": "jual" });
+  const modal = h("input", { class: "cell", inputmode: "decimal", "aria-label": "Sub item modal", placeholder: "0", "data-col": "modal" });
+  bindNum(jual, () => sb.jual, v => sb.jual = v, sb, "jual");
+  bindNum(modal, () => sb.modal, v => sb.modal = v, sb, "modal");
+  [jual, modal].forEach(inp => inp.addEventListener("keydown", gridNav));
+  const mar = h("td", { class: "td-mar" });
+  const ada = h("input", { type: "checkbox", "aria-label": "Sub item ada" });
+  ada.checked = !sb.off;
+  ada.addEventListener("change", () => { sb.off = !ada.checked; update(); save(); });
+  const act = h("td", { class: "td-act" }, ada,
+    h("button", { class: "x", type: "button", title: "Hapus sub item", "aria-label": "Hapus sub item", text: "×",
+      onclick: () => { it.subs = it.subs.filter(x => x.id !== sb.id); render(); update(); save(); } }));
+  const tr = h("tr", { class: "subrow" }, h("td", { class: "td-name" }, nameInp), h("td", {}, jual), h("td", {}, modal), mar, act);
+  refs.items[sb.id] = { tr, mar, jual, modal, ada, nameInp, sub: true };
+  return tr;
+}
+
+/* nilai efektif item: bila punya sub item, jumlah sub item yang aktif */
+function effv(it) {
+  const subs = it.subs || [];
+  if (!subs.length) return { j: it.jual, m: it.modal };
+  let j = 0, m = 0;
+  subs.forEach(sb => { if (!sb.off) { j += sb.jual; m += sb.modal; } });
+  return { j, m };
+}
+
+function paintRow(r, o, dead) {
+  const margin = o.jual - o.modal;
+  let cls;
+  if (dead) cls = "off";
+  else if (o.jual === 0 && o.modal === 0) cls = "empty";
+  else if (margin > 0) cls = "profit";
+  else if (margin < 0) cls = "loss";
+  else cls = "even";
+  r.tr.className = cls + (r.sub ? " subrow" : "");
+  r.jual.disabled = r.modal.disabled = dead;
+  r.ada.checked = !o.off;
+  if (cls === "empty" || cls === "off") r.mar.textContent = "–";
+  else {
+    const sign = margin > 0 ? "+" : margin < 0 ? "−" : "";
+    r.mar.textContent = sign + fmt(Math.abs(margin));
+    if (o.jual > 0) r.mar.append(h("small", { text: Math.round(margin / o.jual * 100) + "%" }));
+  }
+}
+
 /* ===== hitung ulang (live) ===== */
 function update() {
   let T = 0, M = 0, lossN = 0;
@@ -810,23 +921,24 @@ function update() {
     let cj = 0, cm = 0;
     cat.items.forEach(it => {
       const r = refs.items[it.id]; if (!r) return;
-      const margin = it.jual - it.modal;
-      let cls = "";
-      if (it.off) cls = "off";
-      else if (it.jual === 0 && it.modal === 0) cls = "empty";
-      else if (margin > 0) cls = "profit";
-      else if (margin < 0) cls = "loss";
-      else cls = "even";
-      r.tr.className = cls;
-      r.jual.disabled = r.modal.disabled = it.off;
-      r.ada.checked = !it.off;
-      if (cls === "empty" || cls === "off") r.mar.textContent = "–";
-      else {
-        const sign = margin > 0 ? "+" : margin < 0 ? "−" : "";
-        r.mar.textContent = sign + fmt(Math.abs(margin));
-        if (it.jual > 0) r.mar.append(h("small", { text: Math.round(margin / it.jual * 100) + "%" }));
+      const subs = it.subs || [];
+      if (subs.length) {
+        let ij = 0, im = 0;
+        subs.forEach(sb => {
+          const sr = refs.items[sb.id], dead = it.off || sb.off;
+          if (sr) paintRow(sr, sb, dead);
+          if (!dead) { ij += sb.jual; im += sb.modal; if (sb.jual - sb.modal < 0) lossN++; }
+        });
+        const pm = ij - im;
+        r.tr.className = (it.off ? "off" : (ij === 0 && im === 0) ? "empty" : pm > 0 ? "profit" : pm < 0 ? "loss" : "even") + " parent";
+        r.jual.disabled = r.modal.disabled = true;
+        r.jual.value = r.modal.value = ""; r.jual.placeholder = r.modal.placeholder = "";
+        r.mar.textContent = "–"; r.ada.checked = !it.off;
+        if (!it.off) { cj += ij; cm += im; }
+      } else {
+        paintRow(r, it, it.off);
+        if (!it.off) { cj += it.jual; cm += it.modal; if (it.jual - it.modal < 0) lossN++; }
       }
-      if (!it.off) { cj += it.jual; cm += it.modal; if (margin < 0) lossN++; }
     });
     const cr = refs.cats[cat.id];
     if (cr) {
@@ -836,7 +948,6 @@ function update() {
     }
     T += cj; M += cm;
   });
-
   const margin = T - M;
   const eo = Math.round(T * state.eoPct / 100);
   const before = T + eo;
@@ -898,7 +1009,7 @@ function bindStatic() {   /* dipasang sekali */
       save();
     };
   });
-  bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v);
+  bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v, state, "plafon");
   [["in-eo", "eoPct"], ["in-vat", "vatPct"]].forEach(([id, key]) => {
     const el = $(id);
     el.oninput = () => { const n = parseFloat(el.value); state[key] = isFinite(n) && n >= 0 ? n : 0; update(); save(); };
@@ -964,8 +1075,9 @@ function calc(st = state) {
   let T = 0, M = 0, lossN = 0;
   st.cats.forEach(c => c.items.forEach(it => {
     if (it.off) return;
-    T += it.jual; M += it.modal;
-    if (it.jual - it.modal < 0) lossN++;
+    const subs = it.subs || [];
+    const rows = subs.length ? subs.filter(sb => !sb.off) : [it];
+    rows.forEach(o => { T += o.jual; M += o.modal; if (o.jual - o.modal < 0) lossN++; });
   }));
   const eo = Math.round(T * st.eoPct / 100);
   const before = T + eo;
@@ -996,24 +1108,29 @@ function buildPreview() {
   const shown = visibleCats();
   shown.forEach(({ cat, items }, ci) => {
     let cj = 0, cm = 0;
-    items.forEach(it => { cj += it.jual; cm += it.modal; });
+    items.forEach(it => { const e = effv(it); cj += e.j; cm += e.m; });
     const tb = h("tbody");
     tb.append(h("tr", { class: "cat" },
       h("td", { text: letter(ci) + ".  " + (cat.name || "(tanpa nama)") }),
       h("td", { text: fmt(cj) }), h("td", { text: fmt(cm) }), h("td", { text: sgn(cj - cm) })));
-    items.forEach(it => {
-      const cls = rowClass(it), m = it.jual - it.modal;
+    const line = (nm, o, indent) => {
+      const cls = rowClass(o), m = o.jual - o.modal;
       const mar = h("td", { class: "td-mar" });
       if (cls === "empty") mar.textContent = "–";
       else {
         mar.textContent = sgn(m);
-        if (it.jual > 0) mar.append(h("small", { text: Math.round(m / it.jual * 100) + "%" }));
+        if (o.jual > 0) mar.append(h("small", { text: Math.round(m / o.jual * 100) + "%" }));
       }
-      tb.append(h("tr", { class: cls },
-        h("td", { text: it.name || "(tanpa nama)" }),
-        h("td", { text: fmt(it.jual) }),
-        h("td", { text: fmt(it.modal) }),
-        mar));
+      return h("tr", { class: cls },
+        h("td", indent ? { text: nm, style: "padding-left:48px" } : { text: nm }),
+        h("td", { text: fmt(o.jual) }), h("td", { text: fmt(o.modal) }), mar);
+    };
+    items.forEach(it => {
+      if ((it.subs || []).length) {
+        const pe = effv(it);
+        tb.append(h("tr", { class: rowClass({ jual: pe.j, modal: pe.m, off: false }) + " parent" }, h("td", { text: it.name || "(tanpa nama)" }), h("td"), h("td"), h("td")));
+        it.subs.filter(sb => !sb.off).forEach(sb => tb.append(line(sb.name || "(tanpa nama)", sb, true)));
+      } else tb.append(line(it.name || "(tanpa nama)", it, false));
     });
     table.append(tb);
   });
@@ -1179,14 +1296,21 @@ function buildWorkbook() {
     const first = r;
     let catSum = 0;
     items.forEach((it, i) => {
-      for (let k = 0; k < PER; k++) grid(r + k, true);
+      const hasSub = (it.subs || []).length > 0, subs = (it.subs || []).filter(sb => !sb.off);
+      const n = Math.max(PER, 1 + subs.length);
+      for (let k = 0; k < n; k++) grid(r + k, true);
       put("B" + r, i + 1, { fmt: "###0;###0", align: CENTER, border: GRID });
       put("C" + r, it.name || "(tanpa nama)", { border: GRID });
-      put("J" + r, it.jual, { fmt: ACC, border: GRID });
-      put("M" + r, it.modal, { fmt: ACC, border: GRID });
-      put("N" + r, { formula: `J${r}-M${r}`, result: it.jual - it.modal }, { fmt: ACC2, border: GRID });
-      catSum += it.jual; sumMargin += it.jual - it.modal;
-      r += PER;
+      const val = (rr, o, nm) => {
+        if (nm !== undefined) put("D" + rr, nm, { border: GRID });
+        put("J" + rr, o.jual, { fmt: ACC, border: GRID });
+        put("M" + rr, o.modal, { fmt: ACC, border: GRID });
+        put("N" + rr, { formula: `J${rr}-M${rr}`, result: o.jual - o.modal }, { fmt: ACC2, border: GRID });
+        catSum += o.jual; sumMargin += o.jual - o.modal;
+      };
+      if (hasSub) subs.forEach((sb, k) => val(r + 1 + k, sb, sb.name || "(tanpa nama)"));
+      else val(r, it);
+      r += n;
     });
     put("K" + catR, { formula: `SUM(J${first}:J${r - 1})`, result: catSum }, { font: FB, fmt: ACC2, align: RIGHT, border: GRID });
     sumJual += catSum;
