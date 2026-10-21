@@ -389,7 +389,7 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
       </div>
 
       <div class="card" aria-label="Plafon klien">
-        <div class="row"><span class="k">Plafon Klien <span class="unit">Before VAT</span></span><input class="wide" id="in-plafon" inputmode="numeric" aria-label="Plafon klien before VAT" placeholder="0"></div>
+        <div class="row"><span class="k">Plafon Klien <span class="unit">Before VAT</span></span><input class="wide" id="in-plafon" inputmode="decimal" aria-label="Plafon klien before VAT" placeholder="0"></div>
         <div class="row"><span class="k">Plafon Before EO Fee</span><span class="v" id="s-max"></span></div>
         <div class="row"><span class="k">Budget Maximum Before VAT</span><span class="v" id="s-budmax"></span></div>
       </div>
@@ -443,7 +443,8 @@ const TEMPLATE = [
   ["Creative Content", [["Design & Multimedia Content",10000,9000]]],
   ["Support Event", [["Registration System",10000,9000],["Laptop",10000,9000],["Internet",10000,9000],["ID Card",10000,9000],["Activity",10000,9000],["Customer Treatment",10000,9000],["Documentation",10000,9000],["Special Effect",10000,9000],["CCTV",10000,9000],["Ambulance",10000,9000]]],
   ["Production Cost", [["Manpower",10000,9000],["Meals",10000,9000],["Accommodation",10000,9000],["Transport",10000,9000],["Survey",10000,9000],["ATK & Printing",10000,9000],["HT",10000,9000]]],
-  ["Talent", [["MC",10000,9000],["Performance",10000,9000]]]
+  ["Talent", [["MC",10000,9000],["Performance",10000,9000]]],
+  ["Marketing Fee", [["Marketing Fee",0,0]]]
 ];
 const STORE_KEY = "anggaran-event-v1";
 let uid = 0;
@@ -490,6 +491,12 @@ function fixUid(st) {   /* pastikan id baru tidak bentrok dengan id yang sudah t
   let m = uid;
   JSON.stringify(st).replace(/"id":"[a-z]+(\d+)"/g, (_, n) => { m = Math.max(m, +n); return ""; });
   uid = m;
+  /* proyek lama: sisipkan kategori template baru "Marketing Fee" bila belum ada (setelah Talent) */
+  if (st && Array.isArray(st.cats) && !st.cats.some(c => (c.name || "").trim().toLowerCase() === "marketing fee")) {
+    const mf = { id: nid(), name: "Marketing Fee", custom: false, items: [{ id: nid(), name: "Marketing Fee", jual: 0, modal: 0, off: false, custom: false, subs: [] }] };
+    const ti = st.cats.findIndex(c => c.name === "Talent" && !c.custom);
+    if (ti >= 0) st.cats.splice(ti + 1, 0, mf); else st.cats.push(mf);
+  }
 }
 function setSync(t, cls) { const el = $("sync"); if (el) { el.textContent = t || ""; el.className = "sync " + (cls || ""); } }
 const cloudOn = () => !!(fb && fb.user);
@@ -677,8 +684,9 @@ async function bootStorage() {
 }
 
 /* ===== util ===== */
-const nf = new Intl.NumberFormat("id-ID");
-const fmt = n => nf.format(Math.round(n));
+const nf = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
+const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const fmt = n => nf.format(round2(n));
 const rp = n => (n < 0 ? "−Rp " : "Rp ") + fmt(Math.abs(n));
 const $ = id => document.getElementById(id);
 function h(tag, attrs, ...kids) {
@@ -717,7 +725,7 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
     if (fxo) { if (f) (fxo.fx = fxo.fx || {})[fxk] = f; else if (fxo.fx) delete fxo.fx[fxk]; }
     inp.title = f || "";
   };
-  const fxValid = f => { const r = evalExpr(f.slice(1)); return r !== null && Math.round(r) === getVal(); };
+  const fxValid = f => { const r = evalExpr(f.slice(1)); return r !== null && round2(r) === getVal(); };
   inp.value = getVal() ? fmt(getVal()) : "";
   { const f = fxGet(); if (f) { if (fxValid(f)) inp.title = f; else fxSet(""); } }
   inp.addEventListener("focus", () => {
@@ -730,12 +738,15 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
     if (inp.value.trim().startsWith("=")) return;   /* mode rumus: ketik bebas, dihitung saat Enter / pindah sel */
     if (fxGet()) fxSet("");
     const pos = inp.selectionStart || 0;
-    const before = inp.value.slice(0, pos).replace(/\D/g, "").length;
-    const digits = inp.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 13);
-    const n = digits ? parseInt(digits, 10) : 0;
-    inp.value = digits ? fmt(n) : "";
+    const before = inp.value.slice(0, pos).replace(/[^\d,]/g, "").length;
+    const raw = inp.value.replace(/[^\d,]/g, "");
+    const ci = raw.indexOf(",");
+    const ip = (ci < 0 ? raw : raw.slice(0, ci)).replace(/^0+(?=\d)/, "").slice(0, 13);
+    const dp = ci < 0 ? null : raw.slice(ci + 1).replace(/,/g, "").slice(0, 2);
+    const n = parseFloat((ip || "0") + (dp ? "." + dp : ""));
+    inp.value = (ip ? nf.format(parseInt(ip, 10)) : (dp !== null ? "0" : "")) + (dp !== null ? "," + dp : "");
     let c = 0, seen = 0;
-    while (c < inp.value.length && seen < before) { if (/\d/.test(inp.value[c])) seen++; c++; }
+    while (c < inp.value.length && seen < before) { if (/[\d,]/.test(inp.value[c])) seen++; c++; }
     try { inp.setSelectionRange(c, c); } catch (e) {}
     setVal(n); update(); save();
   });
@@ -743,7 +754,7 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
     const v = inp.value.trim();
     if (!v.startsWith("=")) return;
     const r = evalExpr(v.slice(1));
-    const n = r === null ? null : Math.round(r);
+    const n = r === null ? null : round2(r);
     if (n === null || n < 0 || n > 9999999999999) {
       inp.value = getVal() ? fmt(getVal()) : "";
       inp.classList.add("invalid");
@@ -755,8 +766,16 @@ function bindNum(inp, getVal, setVal, fxo, fxk) {
     if (same) return;   /* hanya dilihat, tidak diubah: tidak perlu menyimpan ulang */
     fxSet(v); setVal(n); update(); save();
   };
-  inp.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
-  inp.addEventListener("blur", commit);
+  inp.addEventListener("keydown", e => {
+    if (e.key === "Enter") commit();
+    else if (e.key === "." && !e.ctrlKey && !e.metaKey && !e.altKey && !inp.value.trim().startsWith("=")) {   /* titik = koma desimal */
+      e.preventDefault(); inp.setRangeText(",", inp.selectionStart, inp.selectionEnd, "end"); inp.dispatchEvent(new Event("input"));
+    }
+  });
+  inp.addEventListener("blur", () => {
+    if (inp.value.trim().startsWith("=")) commit();
+    else inp.value = getVal() ? fmt(getVal()) : "";   /* rapikan, mis. "12," menjadi "12" */
+  });
 }
 
 /* ===== navigasi sel ala Excel =====
@@ -842,8 +861,8 @@ function itemRow(cat, it) {
     nameInp.setAttribute("data-col", "name"); nameInp.addEventListener("keydown", gridNav);
   }
 
-  const jual = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " Harga Jual", placeholder: "0", "data-col": "jual" });
-  const modal = h("input", { class: "cell", inputmode: "numeric", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
+  const jual = h("input", { class: "cell", inputmode: "decimal", "aria-label": it.name + " Harga Jual", placeholder: "0", "data-col": "jual" });
+  const modal = h("input", { class: "cell", inputmode: "decimal", "aria-label": it.name + " modal", placeholder: "0", "data-col": "modal" });
   bindNum(jual, () => it.jual, v => it.jual = v, it, "jual");
   bindNum(modal, () => it.modal, v => it.modal = v, it, "modal");
   [jual, modal].forEach(inp => inp.addEventListener("keydown", gridNav));
@@ -896,12 +915,12 @@ function effv(it) {
   const subs = it.subs || [];
   if (!subs.length) return { j: it.jual, m: it.modal };
   let j = 0, m = 0;
-  subs.forEach(sb => { if (!sb.off) { j += sb.jual; m += sb.modal; } });
+  subs.forEach(sb => { if (!sb.off) { j = round2(j + sb.jual); m = round2(m + sb.modal); } });
   return { j, m };
 }
 
 function paintRow(r, o, dead) {
-  const margin = o.jual - o.modal;
+  const margin = round2(o.jual - o.modal);
   let cls;
   if (dead) cls = "off";
   else if (o.jual === 0 && o.modal === 0) cls = "empty";
@@ -932,34 +951,34 @@ function update() {
         subs.forEach(sb => {
           const sr = refs.items[sb.id], dead = it.off || sb.off;
           if (sr) paintRow(sr, sb, dead);
-          if (!dead) { ij += sb.jual; im += sb.modal; if (sb.jual - sb.modal < 0) lossN++; }
+          if (!dead) { ij = round2(ij + sb.jual); im = round2(im + sb.modal); if (sb.jual - sb.modal < 0) lossN++; }
         });
-        const pm = ij - im;
+        const pm = round2(ij - im);
         r.tr.className = (it.off ? "off" : (ij === 0 && im === 0) ? "empty" : pm > 0 ? "profit" : pm < 0 ? "loss" : "even") + " parent";
         r.jual.disabled = r.modal.disabled = true;
         r.jual.value = r.modal.value = ""; r.jual.placeholder = r.modal.placeholder = "";
         r.mar.textContent = "–"; r.ada.checked = !it.off;
-        if (!it.off) { cj += ij; cm += im; }
+        if (!it.off) { cj = round2(cj + ij); cm = round2(cm + im); }
       } else {
         paintRow(r, it, it.off);
-        if (!it.off) { cj += it.jual; cm += it.modal; if (it.jual - it.modal < 0) lossN++; }
+        if (!it.off) { cj = round2(cj + it.jual); cm = round2(cm + it.modal); if (it.jual - it.modal < 0) lossN++; }
       }
     });
     const cr = refs.cats[cat.id];
     if (cr) {
       cr.jualT.textContent = fmt(cj); cr.modalT.textContent = fmt(cm);
-      const m = cj - cm;
+      const m = round2(cj - cm);
       cr.marT.textContent = (m > 0 ? "+" : m < 0 ? "−" : "") + fmt(Math.abs(m));
     }
-    T += cj; M += cm;
+    T = round2(T + cj); M = round2(M + cm);
   });
-  const margin = T - M;
-  const eo = Math.round(T * state.eoPct / 100);
-  const before = T + eo;
-  const vat = Math.round(before * state.vatPct / 100);
-  const after = before + vat;
+  const margin = round2(T - M);
+  const eo = round2(T * state.eoPct / 100);
+  const before = round2(T + eo);
+  const vat = round2(before * state.vatPct / 100);
+  const after = round2(before + vat);
   const basisTotal = before;
-  const gap = state.plafon - basisTotal;
+  const gap = round2(state.plafon - basisTotal);
   const reasons = statusReasons(gap, margin);
   const ok = reasons.length === 0;
   const divisor = 1 + state.eoPct / 100;
@@ -1059,7 +1078,7 @@ if ("IntersectionObserver" in window) {
 function rowClass(it) {
   if (it.off) return "off";
   if (it.jual === 0 && it.modal === 0) return "empty";
-  const m = it.jual - it.modal;
+  const m = round2(it.jual - it.modal);
   return m > 0 ? "profit" : m < 0 ? "loss" : "even";
 }
 /* feasible = muat di plafon DAN margin total tidak negatif */
@@ -1075,21 +1094,21 @@ function pctText(usage, gap) {
   const p = Math.round(usage * 100);
   return (gap < 0 ? Math.max(p, 101) : p) + "%";
 }
-function sgn(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n)); }
+function sgn(n) { n = round2(n); return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n)); }
 function calc(st = state) {
   let T = 0, M = 0, lossN = 0;
   st.cats.forEach(c => c.items.forEach(it => {
     if (it.off) return;
     const subs = it.subs || [];
     const rows = subs.length ? subs.filter(sb => !sb.off) : [it];
-    rows.forEach(o => { T += o.jual; M += o.modal; if (o.jual - o.modal < 0) lossN++; });
+    rows.forEach(o => { T = round2(T + o.jual); M = round2(M + o.modal); if (o.jual - o.modal < 0) lossN++; });
   }));
-  const eo = Math.round(T * st.eoPct / 100);
-  const before = T + eo;
-  const vat = Math.round(before * st.vatPct / 100);
-  const gap = st.plafon - before;
+  const eo = round2(T * st.eoPct / 100);
+  const before = round2(T + eo);
+  const vat = round2(before * st.vatPct / 100);
+  const gap = round2(st.plafon - before);
   const usage = st.plafon > 0 ? before / st.plafon : (before > 0 ? Infinity : 0);
-  return { T, M, margin: T - M, eo, before, vat, after: before + vat, gap, ok: gap >= 0 && (T - M) >= 0, usage, maxT: st.plafon / (1 + st.eoPct / 100), lossN };
+  return { T, M, margin: round2(T - M), eo, before, vat, after: round2(before + vat), gap, ok: gap >= 0 && round2(T - M) >= 0, usage, maxT: st.plafon / (1 + st.eoPct / 100), lossN };
 }
 function longDate(v) {
   if (!v) return "";
@@ -1113,13 +1132,13 @@ function buildPreview() {
   const shown = visibleCats();
   shown.forEach(({ cat, items }, ci) => {
     let cj = 0, cm = 0;
-    items.forEach(it => { const e = effv(it); cj += e.j; cm += e.m; });
+    items.forEach(it => { const e = effv(it); cj = round2(cj + e.j); cm = round2(cm + e.m); });
     const tb = h("tbody");
     tb.append(h("tr", { class: "cat" },
       h("td", { text: letter(ci) + ".  " + (cat.name || "(tanpa nama)") }),
       h("td", { text: fmt(cj) }), h("td", { text: fmt(cm) }), h("td", { text: sgn(cj - cm) })));
     const line = (nm, o, indent) => {
-      const cls = rowClass(o), m = o.jual - o.modal;
+      const cls = rowClass(o), m = round2(o.jual - o.modal);
       const mar = h("td", { class: "td-mar" });
       if (cls === "empty") mar.textContent = "–";
       else {
@@ -1236,14 +1255,17 @@ function visibleCats() {
 function buildWorkbook() {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Cost");
-  const widths = { A: 4.7, B: 5.3, C: 27.7, D: 44.3, E: 8.1, F: 13, G: 13, H: 13, I: 14.8, J: 16.1, K: 18.7, L: 4, M: 16.7, N: 15.8, O: 13 };
+  const widths = { A: 4.7, B: 5.3, C: 27.7, D: 44.3, E: 8.1, F: 13, G: 13, H: 13, I: 14.8, J: 16.1, K: 18.7, L: 15.7, M: 16.7, N: 15.8, O: 13 };
   Object.keys(widths).forEach(k => { ws.getColumn(k).width = widths[k]; });
 
   const thin = { style: "thin", color: { argb: "FF000000" } };
   const GRID = { left: thin, right: thin, top: thin, bottom: thin };
   const F = { name: "Calibri", size: 10 }, FB = { name: "Calibri", size: 10, bold: true };
-  const ACC = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)';
-  const ACC2 = '_-* #,##0_-;\\-* #,##0_-;_-* "-"_-;_-@_-';
+  const cc = calc();
+  const hasDec = [cc.T, cc.M, cc.eo, cc.vat].some(v => !Number.isInteger(v)) || state.cats.some(c => c.items.some(it => [it.jual, it.modal].concat((it.subs || []).reduce((a, x) => a.concat([x.jual, x.modal]), [])).some(v => !Number.isInteger(v))));
+  const D = hasDec ? ".00" : "";
+  const ACC = '_(* #,##0' + D + '_);_(* \\(#,##0' + D + '\\);_(* "-"??_);_(@_)';
+  const ACC2 = '_-* #,##0' + D + '_-;\\-* #,##0' + D + '_-;_-* "-"_-;_-@_-';
   const CENTER = { horizontal: "center", vertical: "middle" }, RIGHT = { horizontal: "right" };
   const solid = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
   const GREY = "FFCCCCCC", YEL = "FFFFFF00";
@@ -1290,9 +1312,12 @@ function buildWorkbook() {
 
   /* kategori & item (7 baris per item, item "tidak ada" tidak ditulis) */
   const PER = 7;
-  let r = 16, sumJual = 0, sumMargin = 0;
+  const isMkt = c => (c.name || "").trim().toLowerCase() === "marketing fee";   /* kategori Marketing Fee tidak masuk tabel, hanya ke blok L:M */
+  let mktFee = 0;
+  state.cats.filter(isMkt).forEach(c => c.items.forEach(it => { if (!it.off) mktFee = round2(mktFee + effv(it).m); }));
+  let r = 16, sumJual = 0, sumMargin = 0, sumModal = 0;
   const catRows = [];
-  visibleCats().forEach(({ cat, items }) => {
+  visibleCats().filter(v => !isMkt(v.cat)).forEach(({ cat, items }) => {
     const catR = r;
     grid(catR, false);
     ws.mergeCells(`B${catR}:C${catR}`);
@@ -1310,22 +1335,22 @@ function buildWorkbook() {
         if (nm !== undefined) put("D" + rr, nm, { border: GRID });
         put("J" + rr, o.jual, { fmt: ACC, border: GRID });
         put("M" + rr, o.modal, { fmt: ACC, border: GRID });
-        put("N" + rr, { formula: `J${rr}-M${rr}`, result: o.jual - o.modal }, { fmt: ACC2, border: GRID });
-        catSum += o.jual; sumMargin += o.jual - o.modal;
+        put("N" + rr, { formula: `J${rr}-M${rr}`, result: round2(o.jual - o.modal) }, { fmt: ACC2, border: GRID });
+        catSum = round2(catSum + o.jual); sumMargin = round2(sumMargin + o.jual - o.modal); sumModal = round2(sumModal + o.modal);
       };
       if (hasSub) subs.forEach((sb, k) => val(r + 1 + k, sb, sb.name || "(tanpa nama)"));
       else val(r, it);
       r += n;
     });
     put("K" + catR, { formula: `SUM(J${first}:J${r - 1})`, result: catSum }, { font: FB, fmt: ACC2, align: RIGHT, border: GRID });
-    sumJual += catSum;
+    sumJual = round2(sumJual + catSum);
     catRows.push(catR);
   });
   const bodyEnd = r - 1;
 
   /* blok total */
   const costR = r, agencyR = r + 1, beforeR = r + 2, vatR = r + 3, afterR = r + 4;
-  const eoV = sumJual * state.eoPct / 100, before = sumJual + eoV, vatV = before * state.vatPct / 100;
+  const eoV = round2(sumJual * state.eoPct / 100), before = round2(sumJual + eoV), vatV = round2(before * state.vatPct / 100);
   const labels = [[costR, "COST"], [agencyR, "Agency Fee"], [beforeR, "Total Before VAT"], [vatR, "VAT"], [afterR, "TOTAL After VAT"]];
   labels.forEach(([rr, lab]) => {
     MAIN.forEach(col => put(col + rr, undefined, { font: FB, border: GRID, fill: rr === beforeR ? GREY : undefined }));
@@ -1337,16 +1362,23 @@ function buildWorkbook() {
   put("E" + vatR, state.vatPct / 100, { font: FB, fmt: pf(state.vatPct), align: CENTER, border: GRID });
   const kv = (rr, formula, result, fill) => put("K" + rr, { formula, result }, { font: FB, fmt: ACC2, align: RIGHT, border: GRID, fill });
   kv(costR, `SUM(K16:K${bodyEnd})`, sumJual);
-  kv(agencyR, `K${costR}*E${agencyR}`, eoV);
+  kv(agencyR, `ROUND(K${costR}*E${agencyR},2)`, eoV);
   kv(beforeR, `SUM(K${costR}:K${agencyR})`, before, GREY);
-  kv(vatR, `K${beforeR}*E${vatR}`, vatV);
-  kv(afterR, `SUM(K${beforeR}:K${vatR})`, before + vatV);
+  kv(vatR, `ROUND(K${beforeR}*E${vatR},2)`, vatV);
+  kv(afterR, `SUM(K${beforeR}:K${vatR})`, round2(before + vatV));
 
-  /* catatan internal: total margin, sejajar dengan baris Agency Fee di bawah kolom MODAL/MARGIN */
-  const tm = sumMargin;
-  put("M" + agencyR, "MARGIN:", { fill: YEL });
-  put("N" + agencyR, { formula: `SUM(N17:N${bodyEnd})`, result: tm }, { fmt: ACC2, fill: YEL });
-  put("O" + agencyR, { formula: `IF(K${costR}=0,0,N${agencyR}/K${costR})`, result: sumJual ? tm / sumJual : 0 }, { fmt: "0.0%", fill: YEL });
+  /* blok internal L:M (tidak ikut area cetak): PPN, Modal, Marketing Fee, Total Cost, Tagihan, Margin */
+  const FN = { name: "Calibri", size: 11 }, ACC11 = ACC;
+  const lab = (rr, t) => put("L" + rr, t, { font: FN, align: RIGHT });
+  const num = (rr, v) => put("M" + rr, v, { font: FN, fmt: ACC11 });
+  const b0 = agencyR, modalAll = round2(sumModal + vatV), totalCost = round2(modalAll + mktFee), tagihan = round2(before + vatV);
+  lab(b0, "PPN");            num(b0, { formula: `K${vatR}`, result: vatV });
+  lab(b0 + 1, "Modal");      num(b0 + 1, { formula: `SUM(M16:M${b0})`, result: modalAll });
+  lab(b0 + 2, "Marketing Fee"); num(b0 + 2, mktFee);
+  lab(b0 + 3, "Total Cost"); num(b0 + 3, { formula: `M${b0 + 1}+M${b0 + 2}`, result: totalCost });
+  lab(b0 + 5, "Tagihan");    num(b0 + 5, { formula: `K${afterR}`, result: tagihan });
+  lab(b0 + 6, "Margin");     num(b0 + 6, { formula: `M${b0 + 5}-M${b0 + 3}`, result: round2(tagihan - totalCost) });
+  put("N" + (b0 + 6), { formula: `IF(K${costR}=0,0,M${b0 + 6}/K${costR})`, result: sumJual ? round2(tagihan - totalCost) / sumJual : 0 }, { font: FN, fmt: "0%" });
 
   /* syarat & ketentuan */
   const tc = afterR + 2;
