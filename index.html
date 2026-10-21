@@ -404,6 +404,7 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
 
       <div class="card" aria-label="Modal dan margin">
         <div class="row"><span class="k">Total Modal</span><span class="v" id="s-modal"></span></div>
+        <div class="row"><span class="k">Marketing Fee</span><input class="wide" id="in-mkt" inputmode="decimal" aria-label="Marketing Fee" placeholder="0"></div>
         <div class="row"><span class="k">Total Margin</span><span class="v" id="s-margin"></span></div>
         <div class="row"><span class="k">Persentase Margin</span><span class="v" id="s-mpct"></span></div>
       </div>
@@ -443,8 +444,7 @@ const TEMPLATE = [
   ["Creative Content", [["Design & Multimedia Content",10000,9000]]],
   ["Support Event", [["Registration System",10000,9000],["Laptop",10000,9000],["Internet",10000,9000],["ID Card",10000,9000],["Activity",10000,9000],["Customer Treatment",10000,9000],["Documentation",10000,9000],["Special Effect",10000,9000],["CCTV",10000,9000],["Ambulance",10000,9000]]],
   ["Production Cost", [["Manpower",10000,9000],["Meals",10000,9000],["Accommodation",10000,9000],["Transport",10000,9000],["Survey",10000,9000],["ATK & Printing",10000,9000],["HT",10000,9000]]],
-  ["Talent", [["MC",10000,9000],["Performance",10000,9000]]],
-  ["Marketing Fee", [["Marketing Fee",0,0]]]
+  ["Talent", [["MC",10000,9000],["Performance",10000,9000]]]
 ];
 const STORE_KEY = "anggaran-event-v1";
 let uid = 0;
@@ -453,7 +453,7 @@ const nid = () => "i" + (++uid);
 function freshState() {   /* semua isian kosong; persen EO Fee & VAT tetap nilai awal */
   return {
     project: { nama: "", venue: "", mulai: "", selesai: "" },
-    plafon: 0, eoPct: 10, vatPct: 11,
+    plafon: 0, eoPct: 10, vatPct: 11, mkt: 0,
     cats: TEMPLATE.map(([name, items]) => ({
       id: nid(), name, custom: false,
       items: items.map(([n]) => ({ id: nid(), name: n, jual: 0, modal: 0, off: false, custom: false, subs: [] }))
@@ -491,11 +491,13 @@ function fixUid(st) {   /* pastikan id baru tidak bentrok dengan id yang sudah t
   let m = uid;
   JSON.stringify(st).replace(/"id":"[a-z]+(\d+)"/g, (_, n) => { m = Math.max(m, +n); return ""; });
   uid = m;
-  /* proyek lama: sisipkan kategori template baru "Marketing Fee" bila belum ada (setelah Talent) */
-  if (st && Array.isArray(st.cats) && !st.cats.some(c => (c.name || "").trim().toLowerCase() === "marketing fee")) {
-    const mf = { id: nid(), name: "Marketing Fee", custom: false, items: [{ id: nid(), name: "Marketing Fee", jual: 0, modal: 0, off: false, custom: false, subs: [] }] };
-    const ti = st.cats.findIndex(c => c.name === "Talent" && !c.custom);
-    if (ti >= 0) st.cats.splice(ti + 1, 0, mf); else st.cats.push(mf);
+  /* proyek lama: kategori "Marketing Fee" kini kolom tersendiri di panel (st.mkt); nilainya diambil dari kolom Modal */
+  if (st && Array.isArray(st.cats)) {
+    const mf = st.cats.filter(c => (c.name || "").trim().toLowerCase() === "marketing fee");
+    if (mf.length) {
+      if (st.mkt === undefined) { let v = 0; mf.forEach(c => c.items.forEach(it => { if (!it.off) v += effv(it).m; })); st.mkt = round2(v); }
+      st.cats = st.cats.filter(c => !mf.includes(c));
+    }
   }
 }
 function setSync(t, cls) { const el = $("sync"); if (el) { el.textContent = t || ""; el.className = "sync " + (cls || ""); } }
@@ -720,9 +722,11 @@ function evalExpr(src) {
 
 function bindNum(inp, getVal, setVal, fxo, fxk) {
   /* fxo.fx[fxk] menyimpan teks rumus terakhir yang valid, supaya bisa ditinjau lagi saat sel diklik */
-  const fxGet = () => (fxo && fxo.fx && fxo.fx[fxk]) || "";
+  const fo = () => (typeof fxo === "function" ? fxo() : fxo);
+  const fxGet = () => { const o = fo(); return (o && o.fx && o.fx[fxk]) || ""; };
   const fxSet = f => {
-    if (fxo) { if (f) (fxo.fx = fxo.fx || {})[fxk] = f; else if (fxo.fx) delete fxo.fx[fxk]; }
+    const o = fo();
+    if (o) { if (f) (o.fx = o.fx || {})[fxk] = f; else if (o.fx) delete o.fx[fxk]; }
     inp.title = f || "";
   };
   const fxValid = f => { const r = evalExpr(f.slice(1)); return r !== null && round2(r) === getVal(); };
@@ -972,11 +976,11 @@ function update() {
     }
     T = round2(T + cj); M = round2(M + cm);
   });
-  const margin = round2(T - M);
   const eo = round2(T * state.eoPct / 100);
   const before = round2(T + eo);
   const vat = round2(before * state.vatPct / 100);
   const after = round2(before + vat);
+  const margin = round2(before - (M + round2(state.mkt || 0)));   /* Total Sebelum VAT − (Total Modal + Marketing Fee) */
   const basisTotal = before;
   const gap = round2(state.plafon - basisTotal);
   const reasons = statusReasons(gap, margin);
@@ -1033,7 +1037,8 @@ function bindStatic() {   /* dipasang sekali */
       save();
     };
   });
-  bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v, state, "plafon");
+  bindNum($("in-plafon"), () => state.plafon, v => state.plafon = v, () => state, "plafon");
+  bindNum($("in-mkt"), () => state.mkt || 0, v => state.mkt = v, () => state, "mkt");
   [["in-eo", "eoPct"], ["in-vat", "vatPct"]].forEach(([id, key]) => {
     const el = $(id);
     el.oninput = () => { const n = parseFloat(el.value); state[key] = isFinite(n) && n >= 0 ? n : 0; update(); save(); };
@@ -1045,6 +1050,8 @@ function syncStatic() {   /* isi ulang kolom dari proyek yang sedang dibuka */
   $("p-selesai").min = p.mulai || "";
   $("req-msg").hidden = true;
   $("in-plafon").value = state.plafon ? fmt(state.plafon) : "";
+  $("in-mkt").value = state.mkt ? fmt(state.mkt) : "";
+  $("in-plafon").title = (state.fx && state.fx.plafon) || ""; $("in-mkt").title = (state.fx && state.fx.mkt) || "";
   $("in-eo").value = state.eoPct; $("in-vat").value = state.vatPct;
 }
 
@@ -1106,9 +1113,10 @@ function calc(st = state) {
   const eo = round2(T * st.eoPct / 100);
   const before = round2(T + eo);
   const vat = round2(before * st.vatPct / 100);
+  const mk = round2(st.mkt || 0), mg = round2(before - (M + mk));
   const gap = round2(st.plafon - before);
   const usage = st.plafon > 0 ? before / st.plafon : (before > 0 ? Infinity : 0);
-  return { T, M, margin: round2(T - M), eo, before, vat, after: round2(before + vat), gap, ok: gap >= 0 && round2(T - M) >= 0, usage, maxT: st.plafon / (1 + st.eoPct / 100), lossN };
+  return { T, M, margin: mg, mkt: mk, eo, before, vat, after: round2(before + vat), gap, ok: gap >= 0 && mg >= 0, usage, maxT: st.plafon / (1 + st.eoPct / 100), lossN };
 }
 function longDate(v) {
   if (!v) return "";
@@ -1185,6 +1193,7 @@ function buildPreview() {
       row("Total Setelah VAT", rp(c.after), "strong")),
     h("div", { class: "card" },
       row("Total Modal", rp(c.M)),
+      row("Marketing Fee", rp(c.mkt)),
       row("Total Margin", rp(c.margin), "", c.margin < 0 ? "neg" : c.margin > 0 ? "pos" : ""),
       row("Persentase Margin", c.T > 0 ? (c.margin / c.T * 100).toFixed(1).replace(".", ",") + "%" : "–")));
 
@@ -1262,7 +1271,7 @@ function buildWorkbook() {
   const GRID = { left: thin, right: thin, top: thin, bottom: thin };
   const F = { name: "Calibri", size: 10 }, FB = { name: "Calibri", size: 10, bold: true };
   const cc = calc();
-  const hasDec = [cc.T, cc.M, cc.eo, cc.vat].some(v => !Number.isInteger(v)) || state.cats.some(c => c.items.some(it => [it.jual, it.modal].concat((it.subs || []).reduce((a, x) => a.concat([x.jual, x.modal]), [])).some(v => !Number.isInteger(v))));
+  const hasDec = [cc.T, cc.M, cc.eo, cc.vat, state.mkt || 0].some(v => !Number.isInteger(v)) || state.cats.some(c => c.items.some(it => [it.jual, it.modal].concat((it.subs || []).reduce((a, x) => a.concat([x.jual, x.modal]), [])).some(v => !Number.isInteger(v))));
   const D = hasDec ? ".00" : "";
   const ACC = '_(* #,##0' + D + '_);_(* \\(#,##0' + D + '\\);_(* "-"??_);_(@_)';
   const ACC2 = '_-* #,##0' + D + '_-;\\-* #,##0' + D + '_-;_-* "-"_-;_-@_-';
@@ -1312,12 +1321,10 @@ function buildWorkbook() {
 
   /* kategori & item (7 baris per item, item "tidak ada" tidak ditulis) */
   const PER = 7;
-  const isMkt = c => (c.name || "").trim().toLowerCase() === "marketing fee";   /* kategori Marketing Fee tidak masuk tabel, hanya ke blok L:M */
-  let mktFee = 0;
-  state.cats.filter(isMkt).forEach(c => c.items.forEach(it => { if (!it.off) mktFee = round2(mktFee + effv(it).m); }));
+  const mktFee = round2(state.mkt || 0);   /* Marketing Fee tidak masuk tabel, hanya ke blok L:M */
   let r = 16, sumJual = 0, sumMargin = 0, sumModal = 0;
   const catRows = [];
-  visibleCats().filter(v => !isMkt(v.cat)).forEach(({ cat, items }) => {
+  visibleCats().forEach(({ cat, items }) => {
     const catR = r;
     grid(catR, false);
     ws.mergeCells(`B${catR}:C${catR}`);
@@ -1367,16 +1374,15 @@ function buildWorkbook() {
   kv(vatR, `ROUND(K${beforeR}*E${vatR},2)`, vatV);
   kv(afterR, `SUM(K${beforeR}:K${vatR})`, round2(before + vatV));
 
-  /* blok internal L:M (tidak ikut area cetak): PPN, Modal, Marketing Fee, Total Cost, Tagihan, Margin */
+  /* blok internal L:M (tidak ikut area cetak): Modal, Marketing Fee, Total Cost, Tagihan, Margin */
   const FN = { name: "Calibri", size: 11 }, ACC11 = ACC;
   const lab = (rr, t) => put("L" + rr, t, { font: FN, align: RIGHT });
   const num = (rr, v) => put("M" + rr, v, { font: FN, fmt: ACC11 });
-  const b0 = agencyR, modalAll = round2(sumModal + vatV), totalCost = round2(modalAll + mktFee), tagihan = round2(before + vatV);
-  lab(b0, "PPN");            num(b0, { formula: `K${vatR}`, result: vatV });
+  const b0 = agencyR, modalAll = round2(sumModal), totalCost = round2(modalAll + mktFee), tagihan = before;
   lab(b0 + 1, "Modal");      num(b0 + 1, { formula: `SUM(M16:M${b0})`, result: modalAll });
   lab(b0 + 2, "Marketing Fee"); num(b0 + 2, mktFee);
   lab(b0 + 3, "Total Cost"); num(b0 + 3, { formula: `M${b0 + 1}+M${b0 + 2}`, result: totalCost });
-  lab(b0 + 5, "Tagihan");    num(b0 + 5, { formula: `K${afterR}`, result: tagihan });
+  lab(b0 + 5, "Tagihan");    num(b0 + 5, { formula: `K${beforeR}`, result: tagihan });
   lab(b0 + 6, "Margin");     num(b0 + 6, { formula: `M${b0 + 5}-M${b0 + 3}`, result: round2(tagihan - totalCost) });
   put("N" + (b0 + 6), { formula: `IF(K${costR}=0,0,M${b0 + 6}/K${costR})`, result: sumJual ? round2(tagihan - totalCost) / sumJual : 0 }, { font: FN, fmt: "0%" });
 
