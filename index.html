@@ -1334,7 +1334,7 @@ function buildWorkbook() {
     let catSum = 0;
     items.forEach((it, i) => {
       const hasSub = (it.subs || []).length > 0, subs = (it.subs || []).filter(sb => !sb.off);
-      const n = Math.max(PER, 1 + subs.length);
+      const n = 2 + subs.length;   /* 1 baris item + 1 baris per sub item + 1 baris kosong pemisah */
       for (let k = 0; k < n; k++) grid(r + k, true);
       put("B" + r, i + 1, { fmt: "###0;###0", align: CENTER, border: GRID });
       put("C" + r, it.name || "(tanpa nama)", { border: GRID });
