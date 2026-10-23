@@ -390,16 +390,14 @@ body.booting #view-edit { opacity: .55; pointer-events: none; }
 
       <div class="card" aria-label="Plafon klien">
         <div class="row"><span class="k">Plafon Klien <span class="unit">Before VAT</span></span><input class="wide" id="in-plafon" inputmode="decimal" aria-label="Plafon klien before VAT" placeholder="0"></div>
-        <div class="row"><span class="k">Plafon Before EO Fee</span><span class="v" id="s-max"></span></div>
-        <div class="row"><span class="k">Budget Maximum Before VAT</span><span class="v" id="s-budmax"></span></div>
       </div>
 
       <div class="card" aria-label="Harga Jual">
         <div class="row"><span class="k">Total Harga Jual Before EO Fee</span><span class="v" id="s-jual"></span></div>
         <div class="row"><span class="k">EO Fee <input class="pct" id="in-eo" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen EO Fee"><span class="unit">%</span></span><span class="v" id="s-eo"></span></div>
-        <div class="row strong"><span class="k">Total Sebelum VAT</span><span class="v" id="s-before"></span></div>
+        <div class="row strong"><span class="k">Total Before VAT</span><span class="v" id="s-before"></span></div>
         <div class="row"><span class="k">VAT <input class="pct" id="in-vat" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Persen VAT"><span class="unit">%</span></span><span class="v" id="s-vat"></span></div>
-        <div class="row strong"><span class="k">Total Setelah VAT</span><span class="v" id="s-after"></span></div>
+        <div class="row strong"><span class="k">Total After VAT</span><span class="v" id="s-after"></span></div>
       </div>
 
       <div class="card" aria-label="Modal dan margin">
@@ -980,7 +978,7 @@ function update() {
   const before = round2(T + eo);
   const vat = round2(before * state.vatPct / 100);
   const after = round2(before + vat);
-  const margin = round2(before - (M + round2(state.mkt || 0)));   /* Total Sebelum VAT − (Total Modal + Marketing Fee) */
+  const margin = round2(before - (M + round2(state.mkt || 0)));   /* Total Before VAT − (Total Modal + Marketing Fee) */
   const basisTotal = before;
   const gap = round2(state.plafon - basisTotal);
   const reasons = statusReasons(gap, margin);
@@ -997,8 +995,6 @@ function update() {
   $("s-before").textContent = rp(before);
   $("s-vat").textContent = rp(vat);
   $("s-after").textContent = rp(after);
-  $("s-max").textContent = rp(maxT);
-  $("s-budmax").textContent = rp(state.plafon);
   $("s-mpct").textContent = T > 0 ? (margin / T * 100).toFixed(1).replace(".", ",") + "%" : "–";
 
   const usage = state.plafon > 0 ? basisTotal / state.plafon : (basisTotal > 0 ? Infinity : 0);
@@ -1182,15 +1178,13 @@ function buildPreview() {
   const chip = t => h("span", { class: "chip", text: t });
   const aside = h("div", {}, verdict,
     h("div", { class: "card" },
-      row("Plafon Klien Before VAT", rp(state.plafon)),
-      row("Plafon Before EO Fee", rp(c.maxT)),
-      row("Budget Maximum Before VAT", rp(state.plafon))),
+      row("Plafon Klien Before VAT", rp(state.plafon))),
     h("div", { class: "card" },
       row("Total Harga Jual Before EO Fee", rp(c.T)),
       rowN(["EO Fee", chip(state.eoPct + "%")], rp(c.eo)),
-      row("Total Sebelum VAT", rp(c.before), "strong"),
+      row("Total Before VAT", rp(c.before), "strong"),
       rowN(["VAT", chip(state.vatPct + "%")], rp(c.vat)),
-      row("Total Setelah VAT", rp(c.after), "strong")),
+      row("Total After VAT", rp(c.after), "strong")),
     h("div", { class: "card" },
       row("Total Modal", rp(c.M)),
       row("Marketing Fee", rp(c.mkt)),
@@ -1264,7 +1258,7 @@ function visibleCats() {
 function buildWorkbook() {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Cost");
-  const widths = { A: 4.7, B: 5.3, C: 27.7, D: 44.3, E: 8.1, F: 13, G: 13, H: 13, I: 14.8, J: 16.1, K: 18.7, L: 15.7, M: 16.7, N: 15.8, O: 13 };
+  const widths = { A: 4.7, B: 5.3, C: 27.7, D: 44.3, E: 8.1, F: 13, G: 13, H: 13, I: 14.8, J: 16.1, K: 18.7, L: 24, M: 16.7, N: 15.8, O: 13 };
   Object.keys(widths).forEach(k => { ws.getColumn(k).width = widths[k]; });
 
   const thin = { style: "thin", color: { argb: "FF000000" } };
@@ -1381,8 +1375,8 @@ function buildWorkbook() {
   const b0 = agencyR, modalAll = round2(sumModal), totalCost = round2(modalAll + mktFee), tagihan = before;
   lab(b0 + 1, "Modal");      num(b0 + 1, { formula: `SUM(M16:M${b0})`, result: modalAll });
   lab(b0 + 2, "Marketing Fee"); num(b0 + 2, mktFee);
-  lab(b0 + 3, "Total Cost"); num(b0 + 3, { formula: `M${b0 + 1}+M${b0 + 2}`, result: totalCost });
-  lab(b0 + 5, "Tagihan");    num(b0 + 5, { formula: `K${beforeR}`, result: tagihan });
+  lab(b0 + 3, "Total Cost Before VAT"); num(b0 + 3, { formula: `M${b0 + 1}+M${b0 + 2}`, result: totalCost });
+  lab(b0 + 5, "Tagihan Before VAT"); num(b0 + 5, { formula: `K${beforeR}`, result: tagihan });
   lab(b0 + 6, "Margin");     num(b0 + 6, { formula: `M${b0 + 5}-M${b0 + 3}`, result: round2(tagihan - totalCost) });
   put("N" + (b0 + 6), { formula: `IF(K${costR}=0,0,M${b0 + 6}/K${costR})`, result: sumJual ? round2(tagihan - totalCost) / sumJual : 0 }, { font: FN, fmt: "0%" });
 
